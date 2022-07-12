@@ -10,7 +10,6 @@ public class Verilog extends GenerateText {
 
 	FileWriter toFile = new FileWriter();
 	public String tab = "    ";
-	public String clk = "clk";
 	public Verilog(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
 		dictionary.put(Words.module,"module");
@@ -136,32 +135,130 @@ public class Verilog extends GenerateText {
 	 * 
 	 */
 	// TODO
-	public String CreateSpawnDeclareRegs(HashSet<String> ISAXes, int stage) {
-		String declare = "";
-		for(String ISAX  :  ISAXes) {
-			declare += CreateDeclReg(BNode.WrRD_spawn_valid, stage,ISAX);
-			declare += CreateDeclReg(BNode.WrRD_spawn, stage,ISAX);
-			declare += CreateDeclReg(BNode.WrRD_spawn_addr, stage,ISAX);
+	public String CreateSpawnDeclareSigs(HashSet<String> ISAXes, int stage,  String node, boolean withFire, int sizeOtherNode) {
+		String declare = "// ISAX : Declarations of Signals required for spawn logic for "+node+"\n";
+		String valid_node = node+"_valid";
+		String addr_node = node+"_addr";
+		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
+			valid_node = BNode.Mem_spawn_valid;
+			addr_node = BNode.Mem_spawn_addr;
 		}
-		return declare;		
+		for(String ISAX  :  ISAXes) {
+			declare += CreateDeclReg(valid_node, stage,ISAX);
+			if(!node.contains(BNode.RdMem_spawn))
+				declare += CreateDeclReg(node, stage,ISAX); // read mem does not input any data which has to be stored in reg
+			declare += CreateDeclReg(addr_node, stage,ISAX);
+		}
+		
+		// stall fire signals
+		if(withFire) {
+			String ISAX_fire_r = BNode.ISAX_fire_regF_reg;
+			String ISAX_fire_s = BNode.ISAX_fire_regF_s; 
+			String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg; 
+			String ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_regF_s; 	
+			String ISAX_spawnStall_s = BNode.ISAX_spawnStall_regF_s; 
+			if(node.contentEquals(BNode.RdMem_spawn) || node.contentEquals(BNode.WrMem_spawn)) {
+				ISAX_fire_r = BNode.ISAX_fire_mem_reg; 
+				ISAX_fire_s = BNode.ISAX_fire_mem_s;
+				ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
+				ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_mem_s;
+				ISAX_spawnStall_s = BNode.ISAX_spawnStall_mem_s; 
+			}
+			declare += "reg "+ISAX_fire_r+" ;\n";
+			declare += "wire "+ISAX_fire_s+" ;\n";
+			declare += "reg "+ISAX_fire2_r+" ;\n";
+			declare += "wire "+ISAX_spawnStall_s+";\n";
+			
+			String declareSumSpawn = "wire  ";
+			if((ISAXes.size()+sizeOtherNode)==1)
+				declareSumSpawn += " ";
+			else 
+				declareSumSpawn += "["+((int) Math.ceil(Math.log(ISAXes.size()+sizeOtherNode))) +"-1 : 0] ";
+			declareSumSpawn += ISAX_sum_spawn_s+";\n";
+			declare += declareSumSpawn;
+		}
+		return declare;			
 	}
 	
-	public String CreateSpawnRegsWrRD(String instr, int stage, String priority, String ISAX_fire2_regF_r) {
+	public String CreateSpawnRegsWrRD(String instr, int stage, String priority, String node) {
 		String body = "";	
+		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg;
+		String valid_node = node+"_valid";
+		String addr_node = node+"_addr";
+		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
+			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
+			valid_node = BNode.Mem_spawn_valid ;
+			addr_node = BNode.Mem_spawn_addr;
+		}
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
-		body += "always @(posedge clk) begin\n "
-				+ "if("+CreateNodeName(BNode.WrRD_spawn_valid, stage,instr)+") begin \n"
-				+ tab+CreateNodeName(BNode.WrRD_spawn_valid, stage,instr).replace("_i", "_reg")+" <= 1'b1; \n"
-				+ tab+CreateNodeName(BNode.WrRD_spawn, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(BNode.WrRD_spawn, stage,instr)+"; \n"
-				+ tab+CreateNodeName(BNode.WrRD_spawn_addr, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(BNode.WrRD_spawn_addr, stage,instr)+"; \n"
-				+ "end  else if(("+ISAX_fire2_regF_r+") "+priority+")\n"
-				+ tab+CreateNodeName(BNode.WrRD_spawn_valid, stage,instr).replace("_i", "_reg")+" <= 1'b0; \n"
-				+ "if (!resetn) \n"
-		        + tab +CreateNodeName(BNode.WrRD_spawn_valid, stage,instr).replace("_i", "_reg") + "<= 1'b0; \n"
-		        + "end";
+			priority = " "+this.dictionary.get(Words.logical_and)+"! ("+priority+")"; 
+		body += "if("+CreateNodeName(valid_node, stage,instr)+" ) begin \n"
+				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= 1'b1; \n";
+		if(!node.contentEquals(BNode.RdMem_spawn))
+				body +=  tab+CreateNodeName(node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(node, stage,instr)+"; \n";
+		body +=  tab+CreateNodeName(addr_node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(addr_node, stage,instr)+"; \n"
+				+ "end else if(("+ISAX_fire2_r+" ) "+priority+") \n"
+				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= 1'b0; \n"
+				+ "if ("+reset+" )\n"
+		        + tab +CreateNodeName(valid_node, stage,instr).replace("_i", "_reg") + "<= 1'b0; \n";
 				
 		return body;		
+	}
+	
+	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage) {
+		String ISAX_fire_r = BNode.ISAX_fire_regF_reg;
+		String ISAX_fire_s = BNode.ISAX_fire_regF_s; 
+		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg; 
+		String ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_regF_s; 
+		String ISAX_spawnStall_s = BNode.ISAX_spawnStall_regF_s;
+		String valid_node = node+"_valid";
+		String addr_node = node+"_addr";
+		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
+			ISAX_fire_r = BNode.ISAX_fire_mem_reg; 
+			ISAX_fire_s = BNode.ISAX_fire_mem_s;
+			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
+			ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_mem_s;
+			ISAX_spawnStall_s = BNode.ISAX_spawnStall_mem_s;
+			valid_node = BNode.Mem_spawn_valid;
+			addr_node = BNode.Mem_spawn_addr;
+		}
+		
+		// Create stall logic 
+		String stall3Text = "";
+		String stallFullLogic = "";
+		String stageReadyText = "";
+		if (!stallStage.isEmpty() && !stageReady.isEmpty())
+			stall3Text += " || ";
+		if (!stallStage.isEmpty())
+			stall3Text += stallStage;
+		if (!stageReady.isEmpty())
+			stageReadyText = stageReady;
+		if(!stallStage.isEmpty() || !stageReady.isEmpty())
+			stallFullLogic = "&& ("+stageReadyText+" "+stall3Text+")";
+		
+		String sumRes = "1";
+		String default_logic = " // ISAX : Spawn fire logic\n"
+				+ "always @ (posedge "+clk+")  begin\n"
+				+ "     if("+ISAX_fire_s+"  )  \n"
+				+ "         "+ISAX_fire_r+" <=  1'b1; \n"
+				+ "     else if(("+ISAX_fire_r+" ) "+stallFullLogic+")   \n"
+				+ "         "+ISAX_fire_r+" <=  1'b0; \n"
+				+ "     if ("+reset+") \n"
+				+ "          "+ISAX_fire_r+" <= 1'b0; \n"
+				+ "end \n"
+				+ "   \n"
+				+ "always @ (posedge "+clk+")  begin\n"
+				+ "     if(("+ISAX_fire_r+") "+stallFullLogic+")    \n"
+				+ "          "+ISAX_fire2_r+" <=  1'b1; \n"
+				+ "     else if("+ISAX_fire2_r+" && "+ISAX_sum_spawn_s+" == "+sumRes+")    \n"
+				+ "          "+ISAX_fire2_r+" <= 1'b0; \n"
+				+ "     if ("+reset+") \n"
+				+ "          "+ISAX_fire2_r+" <= 1'b0; \n"
+				+ "  end \n"
+				+ "\n ";
+		
+				
+		return default_logic;
 	}
 	
 	public String CreateSpawnCommitWrRD(String instr, int stage, String priority) {
