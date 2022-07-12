@@ -1,0 +1,12 @@
+PicoRV32
+Node_rdPC 0 0 2 4
+Node_rdRS1 1 0 2 4 
+Node_rdRS2 1 0 2 4 
+Node_wrRD 3 0 3 4 
+Node_wrPC 0 0 3 4 
+Node_rdMem 2 0 2 0   
+Node_wrMem 2 0 2 0   
+Node_rdIValid 1 0 3 0   
+Node_rdInstr 1 0 3 0  
+Node_flush 0 1 2 0
+Node_stall 0 1 2 0

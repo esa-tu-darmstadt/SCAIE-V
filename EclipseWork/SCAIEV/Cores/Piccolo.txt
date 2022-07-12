@@ -1,0 +1,16 @@
+Piccolo
+Node_rdRS1 0 0 2 0 
+Node_rdRS2 0 0 2 0 
+Node_wrRD 2 0 2 0 
+Node_rdPC 0 0 2 0
+Node_wrPC 0 0 2 0 
+Node_rdMem 1 0 1 0   
+Node_wrMem 1 0 1 0   
+Node_rdIValid 0 0 2 0   
+Node_rdInstr 0 0 2 0  
+Node_stall 0 0 2 0 
+Node_flush 0 1 2 0
+Datahaz True
+Stall 5 0 1 2 3 4 
+
+

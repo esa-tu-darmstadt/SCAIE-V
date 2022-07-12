@@ -1,0 +1,14 @@
+VexRiscv
+Node_rdRS1 2 0 3 2
+Node_rdRS2 2 0 3 2 
+Node_wrRD 3 1 3 4
+Node_rdPC 0 0 3 3
+Node_wrPC 0 1 3 3
+Node_rdMem 2 1 2 2
+Node_wrMem 2 1 2 2
+Node_rdIValid 1 0 3 4 
+Node_rdInstr 1 0 3 4
+Node_stall 1 0 3 4
+Node_flush 0 1 3 4
+Datahaz True
+Stall 5 0 1 2 3 4 
