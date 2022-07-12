@@ -80,6 +80,12 @@ shim.Generate("VexRiscv"); // generates all the code
 ```
 The files of the VexRiscv core will be modified so that it supports the new interface.
 
+## What is the current status of the project? 
+The project is quite new and we are constantly working on improving it & testing it with different configurations. 
+
+## This ReadMe does not help me much. Where can I find more information? 
+This is the first version of the ReadMe file. In the following weeks we will upload a more detailed version. 
+
 ## Is there a paper to this work? 
 Mihaela Damian, Julian Oppermann, Christoph Spang, Andreas Koch, "SCAIE-V: An Open-Source SCAlable Interface for ISA Extensions
 for RISC-V Processors"
