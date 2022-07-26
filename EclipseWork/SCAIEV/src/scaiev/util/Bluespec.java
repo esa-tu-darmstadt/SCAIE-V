@@ -46,7 +46,6 @@ public class Bluespec extends GenerateText {
 	
 	public void  UpdateInterface(String top_module,String operation, String instr, int stage, boolean top_interface, boolean assigReg) {
 		// Update interf bottom file
-		System.out.println("INTEGRATE. DEBUG. stage = "+stage+" operation = "+operation);
 		String bottom_module = coreBackend.NodeAssignM(operation, stage);
 		String current_module = bottom_module;
 		String prev_module = "";
@@ -54,7 +53,6 @@ public class Bluespec extends GenerateText {
 		while(!prev_module.contentEquals(top_module)) {
 			// Add interface OR local signal
 			if(!current_module.contentEquals(top_module) || top_interface) {  // top file should just instantiate signal in module instantiation and not generate top interface if top_interface = false
-				System.out.println("INTEGRATE. DEBUG. Inserting in interface file with prereq "+ current_module);
 				String additional_text  = "(*always_enabled*) " ;
 				if(current_module.contentEquals(top_module))
 					additional_text = "(*always_enabled *)";
@@ -214,11 +212,14 @@ public class Bluespec extends GenerateText {
 		return declare;		
 	}
 	
-	public String CreateSpawnRegsLogic(String instr, int spawnStage, String priority, String node) { // node has to be "mem_spawn" in case of mem as workaround
+	public String CreateSpawnRegsLogic(String instr, int spawnStage, String priority, String node, String spawnReady) { // node has to be "mem_spawn" in case of mem as workaround
 		String body = "";	
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg;
 		String valid_node = node+"_valid";
 		String addr_node = node+"_addr";
+		String logicSpawnReady = "";
+		if(!spawnReady.isEmpty())
+			logicSpawnReady = " "+this.dictionary.get(Words.logical_and)+" "+spawnReady+" " ;
 		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
 			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
 			valid_node = BNode.Mem_spawn_valid ;
@@ -232,14 +233,24 @@ public class Bluespec extends GenerateText {
 				body +=  tab+CreateNodeName(node, spawnStage,instr).replace("_i", "_reg")+" <= "+CreateLocalNodeName(node, spawnStage,instr)+"; \n";
 
 		body +=  tab+CreateNodeName(addr_node, spawnStage,instr).replace("_i", "_reg")+" <= "+CreateLocalNodeName(addr_node, spawnStage,instr)+"; \n"
-				+ "end  else if(("+ISAX_fire2_r+") "+priority+") \n"
+				+ "end  else if(("+ISAX_fire2_r+") " +logicSpawnReady+priority+") \n"
 				+ tab+CreateNodeName(valid_node, spawnStage,instr).replace("_i", "_reg")+" <= False; \n";
 
 				
 		return body;		
 	}
 	
-	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage, HashSet<String> WrISAXes, HashSet<String> RdISAXes) { // stageReady = (stage3.out.ostatus == OSTATUS_PIPE) for Piccolo
+	/**
+	 * Create default Fire logic for spawn & store spawn reg values. Priority for resetting spawn regs = first wrISAXes, then RdISAXes. To be taken into consideration for other functions so that priority stays the same
+	 * @param node
+	 * @param stallStage
+	 * @param stageReady
+	 * @param spawnStage
+	 * @param WrISAXes
+	 * @param RdISAXes
+	 * @return
+	 */
+	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage, HashSet<String> WrISAXes, HashSet<String> RdISAXes, String spawnReady) { // stageReady = (stage3.out.ostatus == OSTATUS_PIPE) for Piccolo
 		String ISAX_fire_r = BNode.ISAX_fire_regF_reg;
 		String ISAX_fire_s = BNode.ISAX_fire_regF_s; 
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg; 
@@ -247,6 +258,9 @@ public class Bluespec extends GenerateText {
 		String ISAX_spawnStall_s = BNode.ISAX_spawnStall_regF_s;
 		String valid_node = node+"_valid";
 		String addr_node = node+"_addr";
+		String logicSpawnReady = "";
+		if(!spawnReady.isEmpty())
+			logicSpawnReady = " && "+spawnReady+" " ;
 		if(node.contains(BNode.RdMem_spawn.split("d")[1]) ) {
 			ISAX_fire_r = BNode.ISAX_fire_mem_reg; 
 			ISAX_fire_s = BNode.ISAX_fire_mem_s;
@@ -291,7 +305,7 @@ public class Bluespec extends GenerateText {
 				+ tab + "else if("+ISAX_fire_s+")\n"
 				+ tab + tab + ISAX_fire_r+" <=True;\n"
 				+ tab + "\n"
-				+ tab + "if(("+ISAX_sum_spawn_s+"==1) && "+ISAX_fire2_r+")\n"
+				+ tab + "if(("+ISAX_sum_spawn_s+"==1) && "+ISAX_fire2_r+logicSpawnReady+")\n"
 				+ tab + tab + ISAX_fire2_r+" <=  False; \n"
 				+ tab + "else if("+ISAX_fire_r+" "+stallFullLogic+")\n"
 				+ tab + tab + ISAX_fire2_r+" <=  True;\n"
@@ -307,7 +321,7 @@ public class Bluespec extends GenerateText {
 				else 
 					node = BNode.WrMem_spawn;
 			}
-			spawnRegs   += this.CreateSpawnRegsLogic(ISAX, spawnStage, priority, node);
+			spawnRegs   += this.CreateSpawnRegsLogic(ISAX, spawnStage, priority, node,spawnReady);
 			if(!priority.isEmpty())
 				priority += " || ";
 			priority   += this.CreateNodeName(valid_node, spawnStage,ISAX).replace("_i", "_reg");
@@ -366,7 +380,7 @@ public class Bluespec extends GenerateText {
 			priority = " && !("+priority+")"; 
 		body += "if(("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+")"+priority+") begin \n";
 		if(node.contains(BNode.WrMem_spawn))
-			body += CreateLocalNodeName(BNode.WrMem_spawn_valid, stage,instr)+" <= "+BNode.ISAX_fire2_mem_reg+";\n";
+			body += CreateLocalNodeName(BNode.WrMem_spawn_valid, stage,instr)+" <= "+BNode.ISAX_fire2_mem_reg+" && "+valid+";\n";
 		else {
 			body += CreateLocalNodeName(BNode.RdMem_spawn_valid, stage,instr)+" <= "+BNode.ISAX_fire2_mem_reg+" && "+valid+";\n";
 			body += CreateLocalNodeName(BNode.RdMem_spawn, stage,instr)+" <= "+data+";\n";

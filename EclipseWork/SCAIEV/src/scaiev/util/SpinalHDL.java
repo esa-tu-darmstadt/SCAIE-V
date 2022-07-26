@@ -12,17 +12,19 @@ public class SpinalHDL extends GenerateText{
 	
 	public SpinalHDL(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
-		dictionary.put("module","class");
-		dictionary.put("endmodule","}");
-		dictionary.put("reg","Reg");
-		dictionary.put("wire","UInt");		
-		dictionary.put("assign","");
-		dictionary.put("assign_eq",":=");
-		dictionary.put("logical_or","||");
-		dictionary.put("bitwise_or","|");
-		dictionary.put("input","in");
-		dictionary.put("output","out");
+		dictionary.put(Words.module,"class");
+		dictionary.put(Words.endmodule,"}");
+		dictionary.put(Words.reg,"Reg");
+		dictionary.put(Words.wire,"UInt");		
+		dictionary.put(Words.assign,"");
+		dictionary.put(Words.assign_eq,":=");
+		dictionary.put(Words.logical_or,"||");
+		dictionary.put(Words.logical_and,"&&");
+		dictionary.put(Words.bitwise_or,"|");
+		dictionary.put(Words.in,"in");
+		dictionary.put(Words.out,"out");
 		this.toFile = toFile;
+		tab = toFile.tab;
 		this.coreBackend = core;
 	}
 	
@@ -34,9 +36,9 @@ public class SpinalHDL extends GenerateText{
 	
 
 	public String CreateInterface(String operation, int stage, String instr) {
-		String in = dictionary.get("output");
+		String in = dictionary.get(Words.out);
 		if(coreBackend.NodeIn(operation, stage))
-			in =dictionary.get("input");
+			in =dictionary.get(Words.in);
 		String nodeName = CreateNodeName(operation, stage,instr);
 		String size = ""; 
 		if(coreBackend.NodeSize(operation, stage)>0)
@@ -74,7 +76,7 @@ public class SpinalHDL extends GenerateText{
 		 for(String instructionName : ISAXes.keySet()) {
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(!first)
-					 clause += " "+dictionary.get("logical_or")+" ";
+					 clause += " "+dictionary.get(Words.logical_or)+" ";
 				 first = false;
 				 if(!pluginStage.isEmpty())
 					 clause += pluginStage+".";
@@ -93,7 +95,7 @@ public class SpinalHDL extends GenerateText{
 		 for(String instructionName : ISAXes.keySet()) {
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(!first)
-					 clause += " "+dictionary.get("logical_or")+" ";
+					 clause += " "+dictionary.get(Words.logical_or)+" ";
 				 first = false;
 				 if(!pluginStage.isEmpty())
 					 clause +=pluginStage+".";
@@ -110,7 +112,7 @@ public class SpinalHDL extends GenerateText{
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(ISAXes.get(instructionName).GetNode(operation).GetAddrInterf()) {
 					 if(!first)
-						 clause += " "+dictionary.get("logical_or")+" ";
+						 clause += " "+dictionary.get(Words.logical_or)+" ";
 					 if(!pluginStage.isEmpty())
 						 clause += pluginStage+".";
 					 clause += "input(IS_"+instructionName+")";
@@ -150,9 +152,11 @@ public class SpinalHDL extends GenerateText{
 		return decl;		
 	}
 	
-	public String CreateSpawnLogicWrRD(String instr, int stage) {
+	public String CreateSpawnLogicWrRD(String instr, int stage, String priority) {
 		String body = "";
-		body += "when("+this.CreateNodeName(BNode.WrRD_spawn_valid, stage, instr).replace("_i","_reg")+") {\n"
+		if(!priority.isEmpty())
+			priority = " "+this.dictionary.get(Words.logical_and)+" ! ("+priority+")"; 
+		body += "when("+this.CreateNodeName(BNode.WrRD_spawn_valid, stage, instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_regF_reg+priority+") {\n"
 			 +	tab+ "writeStage.arbitration.isRegFSpawn := True\n"
 			 +  tab+ "writeStage.output(REGFILE_WRITE_DATA) := "+this.CreateNodeName(BNode.WrRD_spawn, stage, instr).replace("_i","_reg")+"\n" 
 			 +  tab+ this.CreateNodeName(BNode.WrRD_spawn_valid, stage, instr).replace("_i","_reg")+" := False\n"
@@ -168,25 +172,27 @@ public class SpinalHDL extends GenerateText{
 		String body = "";
 		String wrMemData = "";
 		if(operation.contains(BNode.WrMem_spawn))
-			wrMemData= tab.repeat(tabNr+1)+this.CreateNodeName(BNode.WrMem_spawn, stage, instr)+":= io."+CreateNodeName(BNode.WrMem_spawn,stage,instr)+"\n";
+			wrMemData= tab.repeat(tabNr+1)+this.CreateNodeName(BNode.WrMem_spawn, stage, instr).replace("_i", "_reg")+":= io."+CreateNodeName(BNode.WrMem_spawn,stage,instr)+"\n";
 		body =      tab.repeat(tabNr)+"when(io."+CreateNodeName(BNode.Mem_spawn_valid,stage,instr)+"){\n"
 				+	tab.repeat(tabNr+1)+CreateNodeName(BNode.Mem_spawn_addr,stage,instr).replace("_i","_reg")+" := io."+CreateNodeName(BNode.Mem_spawn_addr,stage,instr)+"\n"
 				+	tab.repeat(tabNr+1)+CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" := io."+CreateNodeName(BNode.Mem_spawn_valid,stage,instr)+"\n"
 				+	wrMemData 
-				+	tab.repeat(tabNr+1)+ "fire_mem := True\n"
+				+	tab.repeat(tabNr+1)+ BNode.ISAX_fire_mem_reg+" := True\n"
 				+   tab.repeat(tabNr)+"}\n";
 		return body;		
 	}
 	
-	public String CreateSpawnCMDMem(String operation,int stage, String instr, int tabNr) {
+	public String CreateSpawnCMDMem(String operation,int stage, String instr, int tabNr, String priority) {
 		String body = "";
 		String write = "True";
 		if(operation.contains(BNode.RdMem_spawn))
 			write = "False";
 		String wrMemData = "";
+		if(!priority.isEmpty())
+			priority = " "+this.dictionary.get(Words.logical_and)+" ! ("+priority+")"; 
 		if(operation.contains(BNode.WrMem_spawn))
 			wrMemData= tab.repeat(tabNr+1)+"dBusAccess.cmd.data  := "+CreateNodeName(BNode.WrMem_spawn,stage,instr).replace("_i","_reg")+"\n";
-		body = 	  tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && fire_mem_2){\n"
+		body = 	  tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_mem_reg+priority+"){\n"
 				+ tab.repeat(tabNr+1)+"dBusAccess.cmd.valid := True \n"
 				+ tab.repeat(tabNr+1)+"dBusAccess.cmd.size := 2\n"
 		 		+ tab.repeat(tabNr+1)+"dBusAccess.cmd.write := "+write+"\n"
@@ -196,34 +202,38 @@ public class SpinalHDL extends GenerateText{
 		 return body;
 	}
 	
-	public String CreateSpawnCMDRDYMem(String operation,int stage, String instr, int tabNr) {
+	public String CreateSpawnCMDRDYMem(String operation,int stage, String instr, int tabNr, String priority) {
 		String body = "";
 		String write = "True";
+		if(!priority.isEmpty())
+			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
 		if(operation.contains(BNode.WrMem_spawn))
-			body =    tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && fire_mem_2) {\n"
+			body =    tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_mem_reg+priority+") {\n"
 					+ tab.repeat(tabNr+1)+"state := State.CMD\n"
-					+ tab.repeat(tabNr+1)+this.CreateNodeName(BNode.WrMem_spawn_valid, stage, instr)+"<= True\n"
-					+ tab.repeat(tabNr+1)+"when(sum_mem==1) {\n"
+					+ tab.repeat(tabNr+1)+"io."+CreateNodeName(BNode.WrMem_spawn_valid, stage, instr)+":= True\n"
+					+ tab.repeat(tabNr+1)+"when("+BNode.ISAX_sum_spawn_mem_s+" === 1) {\n"
 					+ tab.repeat(tabNr+2)+"state := State.IDLE\n"
-					+ tab.repeat(tabNr+2)+"fire2 := False\n"
+					+ tab.repeat(tabNr+2)+BNode.ISAX_fire2_mem_reg+" := False\n"
 					+ tab.repeat(tabNr+1)+"}\n"
 					+ tab.repeat(tabNr+1)+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg")+" := False\n"
 					+ tab.repeat(tabNr)  +"}\n";
 		else 
-			body =    tab.repeat(tabNr)  +"when("+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg")+" && fire_mem_2) {\n"
+			body =    tab.repeat(tabNr)  +"when("+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg")+" && "+BNode.ISAX_fire2_mem_reg+priority+") {\n"
 					+ tab.repeat(tabNr+1)+"state := State.RESPONSE\n"
 					+ tab.repeat(tabNr)  +"}\n";
 		 return body;
 	}
-	public String CreateSpawnRSPRDYMem(int stage, String instr, int tabNr) {
+	public String CreateSpawnRSPRDYMem(int stage, String instr, int tabNr, String priority) {
 		String body = "";
-		body = tab.repeat(tabNr)+"when("+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg") +" && fire_mem_2) {\n"
-				    + tab.repeat(tabNr+1)+this.CreateNodeName(BNode.RdMem_spawn, stage, instr) +"<= dBusAccess.rsp.data\n"
-				    + tab.repeat(tabNr+1)+this.CreateNodeName(BNode.RdMem_spawn_valid, stage, instr) +" <= True\n"
+		if(!priority.isEmpty())
+			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+		body = tab.repeat(tabNr)+"when("+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg") +" && "+BNode.ISAX_fire2_mem_reg+priority+") {\n"
+				    + tab.repeat(tabNr+1)+"io."+CreateNodeName(BNode.RdMem_spawn, stage, instr) +":= dBusAccess.rsp.data\n"
+				    + tab.repeat(tabNr+1)+"io."+CreateNodeName(BNode.RdMem_spawn_valid, stage, instr) +" := True\n"
 					+ tab.repeat(tabNr+1)+"state := State.CMD\n"
-					+ tab.repeat(tabNr+1)+"when(sum_mem==1) {\n"
+					+ tab.repeat(tabNr+1)+"when("+BNode.ISAX_sum_spawn_mem_s+" === 1) {\n"
 					+ tab.repeat(tabNr+2)+"state := State.IDLE\n"
-					+ tab.repeat(tabNr+2)+"fire2 := False\n"
+					+ tab.repeat(tabNr+2)+ BNode.ISAX_fire2_mem_reg+" := False\n"
 					+ tab.repeat(tabNr+1)+"}\n"
 					+ tab.repeat(tabNr+1)+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg") +" := False\n"
 					+ tab.repeat(tabNr)+"}\n";

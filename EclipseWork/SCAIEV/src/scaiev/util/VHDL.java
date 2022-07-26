@@ -169,13 +169,13 @@ public class VHDL extends GenerateText {
 			if((ISAXes.size()+sizeOtherNode)==1)
 				declareSumSpawn += "std_logic;";
 			else 
-				declareSumSpawn += "std_logic_vector("+((int) Math.ceil(Math.log(ISAXes.size()+sizeOtherNode))) +"-1 downto 0);\n";
+				declareSumSpawn += "unsigned("+((int)  (Math.ceil( Math.log(ISAXes.size()+sizeOtherNode+1) / Math.log(2) ) ) ) +"-1 downto 0);\n";
 			declare += declareSumSpawn;
 		}
 		return declare;		
 	}
 	
-	public String CreateSpawnRegsLogic(String instr, int stage, String priority, String node) {
+	public String CreateSpawnRegsLogic(String instr, int stage, String priority, String node, String exprSpawnReady) {
 		String body = "";	
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg;
 		String valid_node = node+"_valid";
@@ -185,39 +185,37 @@ public class VHDL extends GenerateText {
 			valid_node = BNode.Mem_spawn_valid ;
 			addr_node = BNode.Mem_spawn_addr;
 		}
+		if(!exprSpawnReady.isEmpty())
+			exprSpawnReady = " and ("+exprSpawnReady+")";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+"! ("+priority+")"; 
+			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
 		body += "if("+CreateNodeName(valid_node, stage,instr)+" = '1') then \n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= '1'; \n";
 		if(!node.contentEquals(BNode.RdMem_spawn))
 				body +=  tab+CreateNodeName(node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(node, stage,instr)+"; \n";
 		body +=  tab+CreateNodeName(addr_node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(addr_node, stage,instr)+"; \n"
-				+ "elsif(("+ISAX_fire2_r+" = '1') "+priority+") then\n"
+				+ "elsif(("+ISAX_fire2_r+" = '1') "+priority+" "+exprSpawnReady+") then\n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= '0'; \n"
 				+ "end if;\n"
-				+ "if reset = '1' then\n"
+				+ "if "+reset+" = '1' then\n"
 		        + tab +CreateNodeName(valid_node, stage,instr).replace("_i", "_reg") + "<= '0'; \n"
 		        +"end if;\n";
 				
 		return body;		
 	}
 	
-	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage, boolean moreThanOne) { // stageReady =  execute_to_decode_ready for ORCA
+	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage, boolean moreThanOne, String exprSpawnReady) { // stageReady =  execute_to_decode_ready for ORCA
 		String ISAX_fire_r = BNode.ISAX_fire_regF_reg;
 		String ISAX_fire_s = BNode.ISAX_fire_regF_s; 
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg; 
 		String ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_regF_s; 
 		String ISAX_spawnStall_s = BNode.ISAX_spawnStall_regF_s;
-		String valid_node = node+"_valid";
-		String addr_node = node+"_addr";
 		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
 			ISAX_fire_r = BNode.ISAX_fire_mem_reg; 
 			ISAX_fire_s = BNode.ISAX_fire_mem_s;
 			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
 			ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_mem_s;
 			ISAX_spawnStall_s = BNode.ISAX_spawnStall_mem_s;
-			valid_node = BNode.Mem_spawn_valid;
-			addr_node = BNode.Mem_spawn_addr;
 		}
 		
 		// Create stall logic 
@@ -232,10 +230,11 @@ public class VHDL extends GenerateText {
 			stageReadyText = stageReady+" = '1'";
 		if(!stallStage.isEmpty() || !stageReady.isEmpty())
 			stallFullLogic = "and ("+stageReadyText+" "+stall3Text+")";
-		
+		if(!exprSpawnReady.isEmpty())
+			exprSpawnReady = " and ("+exprSpawnReady+")";
 		String sumRes = "'1'";
 		if(moreThanOne)
-			sumRes = "\"1\"";
+			sumRes = "D\"1\"";
 		String default_logic = " -- ISAX : Spawn fire logic\n"
 				+ "process ("+clk+")  \n"
 				+ "  begin \n"
@@ -256,7 +255,7 @@ public class VHDL extends GenerateText {
 				+ "    if rising_edge("+clk+") then \n"
 				+ "        if(("+ISAX_fire_r+"  = '1' ) "+stallFullLogic+")  then  \n"
 				+ "          "+ISAX_fire2_r+" <=  '1'; \n"
-				+ "        elsif("+ISAX_sum_spawn_s+" = "+sumRes+") then   \n"
+				+ "        elsif("+ISAX_sum_spawn_s+" = "+sumRes+") "+exprSpawnReady+"then   \n"
 				+ "          "+ISAX_fire2_r+" <=  '0'; \n"
 				+ "        end if; \n"
 				+ "        if "+reset+" = '1' then \n"
@@ -284,21 +283,108 @@ public class VHDL extends GenerateText {
 		return body;		
 	}
 	
-	public String CreateSpawnLogicWrRD(HashSet<String> ISAXes, int stage, String ISAX_execute_to_rf_data_s, String ISAX_fire2_regF_r) {
+	public String CreateSpawnCommitMem(HashSet<String> RdISAXes,HashSet<String> WrISAXes, int stage, String readyRd, String readyWr ) {
+		String body = "";
+		String valid_node = BNode.Mem_spawn_valid;
+		String ISAX_fire2_r = BNode.ISAX_fire2_mem_reg; 
+		String priority_ISAXes = "";
+		if(!WrISAXes.isEmpty())
+			for (String instr : WrISAXes) {
+				String priority = "";
+				if(!priority_ISAXes.isEmpty())
+					priority = " and not("+priority_ISAXes+")"; 
+				if(!readyWr.isEmpty())
+					readyWr = " and ("+readyWr+")"; 
+				body += "process(all) begin \n";
+				body += CreateNodeName(BNode.WrMem_spawn_valid, stage,instr)+" <= '0';\n";
+				body +=   tab.repeat(1)+"if(("+this.CreateNodeName(valid_node, stage, instr).replace("_i", "_reg")+"  = '1' ) "+priority+" "+readyWr+"   ) then \n";   //(lsu_oimm_waitrequest = '0')
+				body +=  tab.repeat(2)+CreateNodeName(BNode.WrMem_spawn_valid, stage,instr)+" <= '1';\n";
+				body += tab.repeat(1)+"end if; \n"
+						+ "end process; ";
+				if(!priority_ISAXes.isEmpty())
+					priority_ISAXes += " or ";
+				priority_ISAXes   += "("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+ " = '1')";
+			}
+		if(!RdISAXes.isEmpty())
+			for (String instr : RdISAXes) {
+				String priority = "";
+				if(!priority_ISAXes.isEmpty())
+					priority = " and not("+priority_ISAXes+")"; 
+				if(!readyRd.isEmpty())
+					readyRd = " and ("+readyRd+")"; 
+				body += "process(all) begin \n";
+				body += CreateNodeName(BNode.RdMem_spawn_valid, stage,instr)+" <= '0';\n";
+				body +=   tab.repeat(1)+"if(("+this.CreateNodeName(valid_node, stage, instr).replace("_i", "_reg")+"  = '1' )  "+priority+" "+readyRd+"   ) then \n";   //(lsu_oimm_waitrequest = '0')
+				body +=  tab.repeat(2)+CreateNodeName(BNode.RdMem_spawn_valid, stage,instr)+" <= '1';\n";
+				body += tab.repeat(1)+"end if; \n"
+						+ "end process; ";
+				if(!priority_ISAXes.isEmpty())
+					priority_ISAXes += " or ";
+				priority_ISAXes   += "("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+ " = '1')";
+			}
+
+		return body;
+		
+	}
+	
+	
+	public String CreateSpawnLogicWrRD(HashSet<String> ISAXes, int stage, String ISAX_execute_to_rf_data_s) {
 		String body = "";
 		String condition = "if";
 		for(String ISAX : ISAXes) {
-			body += condition + "("+ISAX_fire2_regF_r+" = '1' and "+CreateNodeName(BNode.WrRD_spawn_valid, stage,ISAX).replace("_i", "_reg")+" = '1' )then\n"+tab+ISAX_execute_to_rf_data_s+" <= "+CreateNodeName(BNode.WrRD_spawn, stage,ISAX).replace("_i", "_reg")+";\n";
+			body += condition + "("+BNode.ISAX_fire2_regF_reg+" = '1' and "+CreateNodeName(BNode.WrRD_spawn_valid, stage,ISAX).replace("_i", "_reg")+" = '1' )then\n"+tab+ISAX_execute_to_rf_data_s+" <= "+CreateNodeName(BNode.WrRD_spawn, stage,ISAX).replace("_i", "_reg")+";\n";
 			condition = "elsif";
 		}
 		return body;		
 	}
 	
-	public String CreateSpawnLogicWrRDAddr(HashSet<String> ISAXes, int stage, String ISAX_execute_to_rf_select_s, String ISAX_fire2_regF_r) {
+
+	
+	public String CreateSpawnLogicMem(HashSet<String> RdISAXes,HashSet<String> WrISAXes, int stage,  String wdata, String selectRead, String addr) { //priority = first write then read
+		String body = "process(all) begin \n"
+				+ tab+wdata+" <= X\"00000000\";\n"
+				+ tab+selectRead+" <= '0';\n"
+		        + tab+addr+" <= X\"00000000\";\n";
+		String priority_ISAXes = "";
+		if(!WrISAXes.isEmpty())
+			for (String instr : WrISAXes) {
+				String priority = "";
+				if(!priority_ISAXes.isEmpty())
+					priority = " and not("+priority_ISAXes+")"; 
+			
+				body	+= tab.repeat(1)+"if(  ("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+"  = '1' ) "+priority+" ) then\n"
+					+ tab.repeat(2)+selectRead+" <= '0';\n"
+					+ tab.repeat(2)+wdata+" <= "+CreateNodeName(BNode.WrMem_spawn, stage,instr).replace("_i", "_reg")+";\n"
+					+ tab.repeat(2)+addr+" <= "+CreateNodeName(BNode.Mem_spawn_addr, stage,instr).replace("_i", "_reg")+"; \n"
+					+ tab.repeat(1)+" end if; \n";
+				if(!priority_ISAXes.isEmpty())
+					priority_ISAXes += " or ";
+				priority_ISAXes   += "("+ CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+ " = '1')";
+			}
+		if(!RdISAXes.isEmpty())
+			for (String instr : RdISAXes) {
+				String priority = "";
+				if(!priority_ISAXes.isEmpty())
+					priority = " and not("+priority_ISAXes+")"; 
+			
+				body	+= tab.repeat(1)+"if(  ("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+"  = '1' ) "+priority+" ) then\n"
+					+ tab.repeat(2)+addr+" <= "+CreateNodeName(BNode.Mem_spawn_addr, stage,instr).replace("_i", "_reg")+"; \n"
+					+ tab.repeat(2)+selectRead+" <= '1';\n"
+					+ tab.repeat(1)+" end if; \n";
+				if(!priority_ISAXes.isEmpty())
+					priority_ISAXes += " or ";
+				priority_ISAXes   += "("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+ " = '1')";
+			}
+		
+		body += "end  process;\n";
+		return body;		
+	}
+	
+	public String CreateSpawnLogicWrRDAddr(HashSet<String> ISAXes, int stage, String ISAX_execute_to_rf_select_s) {
 		String body = "";
 		String condition = "if";
 		for(String ISAX : ISAXes) {
-			body += condition + "("+ISAX_fire2_regF_r+" = '1' and "+CreateNodeName(BNode.WrRD_spawn_valid, stage,ISAX).replace("_i", "_reg")+" = '1' )then\n"+tab+ISAX_execute_to_rf_select_s+" <= "+CreateNodeName(BNode.WrRD_spawn_addr, stage,ISAX).replace("_i", "_reg")+";\n";
+			body += condition + "("+BNode.ISAX_fire2_regF_reg+" = '1' and "+CreateNodeName(BNode.WrRD_spawn_valid, stage,ISAX).replace("_i", "_reg")+" = '1' )then\n"+tab+ISAX_execute_to_rf_select_s+" <= "+CreateNodeName(BNode.WrRD_spawn_addr, stage,ISAX).replace("_i", "_reg")+";\n";
 			condition = "elsif";
 		}
 		return body;		

@@ -52,8 +52,8 @@ public class Orca extends CoreBackend {
 		IntegrateISAX_RdFlush();
 		IntegrateISAX_WrRD();
 		IntegrateISAX_Spawn(BNode.WrRD_spawn, true);
-		IntegrateISAX_Spawn(BNode.WrMem_spawn,false);
-		IntegrateISAX_Spawn(BNode.RdMem_spawn,true); // true = don't re-declare isax_fire signals
+		IntegrateISAX_Spawn(BNode.WrMem_spawn,false); // false = don't re-declare isax_fire signals
+		IntegrateISAX_Spawn(BNode.RdMem_spawn,true); 
 		IntegrateISAX_Mem();
 		IntegrateISAX_WrPC();
 		//IntegrateISAX_Mem();
@@ -89,7 +89,6 @@ public class Orca extends CoreBackend {
 			for(int stage : op_stage_instr.get(BNode.RdFlush).keySet()) {
 				if(!this.ContainsOpInStage(BNode.WrFlush, stage)) {
 					toFile.UpdateContent(this.ModFile(NodeAssignM(BNode.WrFlush, stage)),Parse.behav,	  new ToWrite(language.CreateLocalNodeName(BNode.WrFlush, stage, "") + " <= '0';\n",false,true,""));
-					toFile.UpdateContent(this.ModFile(NodeAssignM(BNode.WrFlush, stage)), Parse.declare, new ToWrite(language.CreateDeclSig(BNode.WrFlush, stage, ""),false,true,""));
 				}
 			}
 		}
@@ -239,9 +238,9 @@ public class Orca extends CoreBackend {
 
 		//decl_lineToBeInserted += language.CreateSpawnDeclareRegs(op_stage_instr.get(BNode.WrRD_spawn).get(this.orca_core.maxStage+1), this.orca_core.maxStage+1);
 		if(op_stage_instr.containsKey(BNode.WrRD_spawn)) {
-			wrrdDataBody += language.CreateSpawnLogicWrRD(op_stage_instr.get(BNode.WrRD_spawn).get(this.orca_core.maxStage+1),this.orca_core.maxStage+1, ISAX_execute_to_rf_data_s,BNode.ISAX_fire2_regF_reg) + "\nels";
+			wrrdDataBody += language.CreateSpawnLogicWrRD(op_stage_instr.get(BNode.WrRD_spawn).get(this.orca_core.maxStage+1),this.orca_core.maxStage+1, ISAX_execute_to_rf_data_s) + "\nels";
 			clause_rf_valid += " ("+BNode.ISAX_fire2_regF_reg+"  = '1' ) ";
-			wrrdSelectBody += language.CreateSpawnLogicWrRDAddr(op_stage_instr.get(BNode.WrRD_spawn).get(this.orca_core.maxStage+1),this.orca_core.maxStage+1,ISAX_execute_to_rf_select_s,BNode.ISAX_fire2_regF_reg)+ "\nels";
+			wrrdSelectBody += language.CreateSpawnLogicWrRDAddr(op_stage_instr.get(BNode.WrRD_spawn).get(this.orca_core.maxStage+1),this.orca_core.maxStage+1,ISAX_execute_to_rf_select_s)+ "\nels";
 			
 		}
 		if(ContainsOpInStage(BNode.WrRD,stage)) {
@@ -326,7 +325,7 @@ public class Orca extends CoreBackend {
 				int spawnStage = this.orca_core.maxStage+1;		
 
 				if(op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage).size() >1)
-					toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_regF_s + " <= std_logic_vector("+language.allISAXNameText(" + ", "(unsigned'('0' & "+BNode.WrRD_spawn_valid+"_", "_"+spawnStage+"_reg))", op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage) )+");\n",false, true, ""));
+					toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_regF_s + " <= ("+language.allISAXNameText(" + ", "(unsigned'('0' & "+BNode.WrRD_spawn_valid+"_", "_"+spawnStage+"_reg))", op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage) )+");\n",false, true, ""));
 				else 
 					toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_regF_s + " <= "+language.allISAXNameText(" + ", BNode.WrRD_spawn_valid+"_", "_"+spawnStage+"_reg", op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage) )+";\n",false, true, ""));
 					
@@ -346,19 +345,24 @@ public class Orca extends CoreBackend {
 		if(op_stage_instr.containsKey(node)) {
 			// First, let's declare our new signals
 			int sizeOtherNode = 0; 
-			if(node.contains(BNode.RdMem_spawn))
+			if(node.contains(BNode.RdMem_spawn) && op_stage_instr.containsKey(BNode.WrMem_spawn))
 				sizeOtherNode = this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage).size();
-			else if(node.contains(BNode.WrMem_spawn))
+			else if(node.contains(BNode.WrMem_spawn) && op_stage_instr.containsKey(BNode.RdMem_spawn))
 				sizeOtherNode = this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage).size();
 			toDeclare += language.CreateSpawnDeclareSigs(this.op_stage_instr.get(node).get(spawnStage), spawnStage,node,withFire,sizeOtherNode);
 			toFile.UpdateContent(this.ModFile("orca_core"),Parse.declare, new ToWrite(toDeclare,false,true,""));
 			
 			// Secondly let's store in regs the values we get from a valid spawn request. 
+			String exprSpawnReady = "";
+			if( node.contains(BNode.WrMem_spawn))
+				exprSpawnReady = "(lsu_oimm_waitrequest = '0') ";
+			if(node.contains(BNode.RdMem_spawn) )
+				exprSpawnReady = "not(mem_spawn_valid_COSSIN_5_reg = '1') and (lsu_oimm_readdatavalid = '1')";
 			for(String ISAX : op_stage_instr.get(node).get(spawnStage)) {
-				spawnRegs   += language.CreateSpawnRegsLogic(ISAX, spawnStage, priority,node);
+				spawnRegs   += language.CreateSpawnRegsLogic(ISAX, spawnStage, priority,node,exprSpawnReady);
 				if(!priority.isEmpty())
 					priority += " or ";
-				priority   += language.CreateNodeName(node+"_valid", spawnStage,ISAX).replace("_i", "_reg");
+				priority   += "("+language.CreateNodeName(node+"_valid", spawnStage,ISAX).replace("_i", "_reg") + " = '1')";
 			}
 			toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(language.CreateInProc(true, spawnRegs),false,true,""));
 		
@@ -375,7 +379,10 @@ public class Orca extends CoreBackend {
 				if(this.op_stage_instr.get(node).get(spawnStage).size() >1)
 					moreThanOne = true;
 			if(withFire) {
-				String default_logic = language.CommitSpawnFire(node, stall3, "execute_to_decode_ready", spawnStage,moreThanOne);
+				exprSpawnReady = "";
+				if(node.contains(BNode.RdMem_spawn) || node.contains(BNode.WrMem_spawn))
+					exprSpawnReady = "(((lsu_oimm_waitrequest = '0') and (isax_spawnRdReq = '0')) or (lsu_oimm_readdatavalid = '1'))";
+				String default_logic = language.CommitSpawnFire(node, stall3, "execute_to_decode_ready", spawnStage,moreThanOne,exprSpawnReady);
 				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(default_logic,false,true,""));
 			}
 			
@@ -429,17 +436,68 @@ public class Orca extends CoreBackend {
 				toFile.ReplaceContent(this.ModFile("load_store_unit"),"imm)+unsigned(base_address));", new ToWrite(" ",false,true,""));
 			}
 		}
-		int spawnStage = this.orca_core.maxStage+1;
+		
 		if(this.op_stage_instr.containsKey(BNode.WrMem_spawn) ||this.op_stage_instr.containsKey(BNode.RdMem_spawn) ) {
 			HashSet<String> allMemSpawn = new HashSet<String>();
+			int spawnStage = this.orca_core.maxStage+1;
 			allMemSpawn.addAll(this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage));
 			allMemSpawn.addAll(this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage));
 			
 			if(allMemSpawn.size()>1)
-					toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_mem_s + " <= std_logic_vector("+language.allISAXNameText(" + ", "(unsigned'('0' & "+BNode.Mem_spawn_valid+"_", "_"+spawnStage+"_reg))", allMemSpawn)+");\n",false, true, ""));
+					toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_mem_s + " <= ("+language.allISAXNameText(" + ", "(unsigned'('0' & "+BNode.Mem_spawn_valid+"_", "_"+spawnStage+"_reg))", allMemSpawn)+");\n",false, true, ""));
 			else		
 				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite(BNode.ISAX_sum_spawn_mem_s + " <= "+language.allISAXNameText(" + ", BNode.Mem_spawn_valid+"_", "_"+spawnStage+"_reg", allMemSpawn)+";\n",false, true, ""));
 			toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( BNode.ISAX_fire_mem_s + " <= "+language.allISAXNameText(" or ", BNode.Mem_spawn_valid+"_", "_"+spawnStage+"_i", allMemSpawn)+";\n",false, true, ""));
+			
+			toFile.ReplaceContent(this.ModFile("orca_core"),"lsu_oimm_address       => lsu_oimm_address,", new ToWrite("lsu_oimm_address       => isax_lsu_oimm_address,",false,true,""));
+			toFile.ReplaceContent(this.ModFile("orca_core"),"lsu_oimm_byteenable    => lsu_oimm_byteenable,", new ToWrite("lsu_oimm_byteenable    => isax_lsu_oimm_byteenable,",false,true,""));
+			toFile.ReplaceContent(this.ModFile("orca_core"),"lsu_oimm_requestvalid  => lsu_oimm_requestvalid,", new ToWrite("lsu_oimm_requestvalid  => isax_lsu_oimm_requestvalid,",false,true,""));
+			toFile.ReplaceContent(this.ModFile("orca_core"),"lsu_oimm_readnotwrite  => lsu_oimm_readnotwrite,", new ToWrite("lsu_oimm_readnotwrite  => isax_lsu_oimm_readnotwrite,",false,true,""));
+			toFile.ReplaceContent(this.ModFile("orca_core"),"lsu_oimm_writedata     => lsu_oimm_writedata,", new ToWrite("lsu_oimm_writedata     => isax_lsu_oimm_writedata,",false,true,""));
+			String declare = "signal isax_spawn_lsu_oimm_address : std_logic_vector(31 downto 0);\n"
+					+ "signal isax_lsu_oimm_address : std_logic_vector(31 downto 0);\n"
+					+ "signal isax_lsu_oimm_byteenable : std_logic_vector(3 downto 0);\n"
+					+ "signal isax_lsu_oimm_requestvalid : std_logic;\n"
+					+ "signal isax_spawn_read_no_write : std_logic;\n"
+					+ "signal isax_lsu_oimm_readnotwrite : std_logic;\n"
+					+ "signal isax_spawn_lsu_oimm_writedata : std_logic_vector(31 downto 0);\n"
+					+ "signal isax_lsu_oimm_writedata  : std_logic_vector(31 downto 0);\n"
+					+ "signal isax_spawnRdReq : std_logic;\n"
+					+ "signal isax_RdStarted : std_logic;";
+			toFile.UpdateContent(this.ModFile("orca_core"),Parse.declare, new ToWrite( declare,false, true, ""));
+			String checkOngoingTransf = "";
+			if(this.op_stage_instr.containsKey(BNode.RdMem_spawn)) {
+				checkOngoingTransf = "process(clk) begin \n"
+		    		+ tab.repeat(1)+"if rising_edge(clk) then \n"
+		    		+ tab.repeat(2)+"if(lsu_oimm_requestvalid = '1') then\n"
+		    		+ tab.repeat(3)+"isax_RdStarted <= lsu_oimm_readnotwrite;\n"
+		    		+ tab.repeat(2)+"elsif(lsu_oimm_readdatavalid = '1') then\n"
+		    		+ tab.repeat(3)+"isax_RdStarted <='0';\n"
+		    		+ tab.repeat(2)+"end if; \n"
+		    		+ tab.repeat(2)+"if reset = '1' then \n"
+		    		+ tab.repeat(3)+"isax_RdStarted <= '0'; \n"
+		    		+ tab.repeat(2)+"end if; \n"
+		    		+ tab.repeat(1)+"end if;\n"
+		    		+ "end process;\n";
+				checkOngoingTransf += "isax_spawnRdReq <= "+ language.allISAXNameText(" or ", BNode.Mem_spawn_valid+"_", "_"+spawnStage+"_reg", this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage))+";\n";
+			} else checkOngoingTransf = "isax_spawnRdReq <= 0;\n"
+		    		+"isax_RdStarted <= 0;\n";
+			String setSignals = "lsu_oimm_address      <= isax_spawn_lsu_oimm_address when ("+BNode.ISAX_fire2_mem_reg+" = '1')  else isax_lsu_oimm_address;\n"
+					+ "lsu_oimm_byteenable    <= \"1111\" when ("+BNode.ISAX_fire2_mem_reg+" = '1') else isax_lsu_oimm_byteenable;\n"
+					+ "lsu_oimm_requestvalid  <= (not lsu_oimm_waitrequest and not isax_RdStarted) when ("+BNode.ISAX_fire2_mem_reg+" = '1') else isax_lsu_oimm_requestvalid; -- todo possible comb path in slave between valid and wait\n"
+					+ "lsu_oimm_readnotwrite  <= isax_spawn_read_no_write when ("+BNode.ISAX_fire2_mem_reg+" = '1') else isax_lsu_oimm_readnotwrite;\n"
+					+ "lsu_oimm_writedata     <= isax_spawn_lsu_oimm_writedata when ("+BNode.ISAX_fire2_mem_reg+" = '1') else isax_lsu_oimm_writedata;\n";
+			toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( setSignals+checkOngoingTransf,false, true, ""));
+			if(this.op_stage_instr.containsKey(BNode.WrMem_spawn) && this.op_stage_instr.containsKey(BNode.RdMem_spawn)) {
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnLogicMem(this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage),this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),spawnStage,"isax_spawn_lsu_oimm_writedata","isax_spawn_read_no_write","isax_spawn_lsu_oimm_address"),false, true, ""));
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnCommitMem(this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage),this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),spawnStage,"("+BNode.ISAX_fire2_mem_reg+" = '1') and (lsu_oimm_readdatavalid = '1')","(lsu_oimm_waitrequest = '0')"),false, true, ""));
+			} else if(this.op_stage_instr.containsKey(BNode.WrMem_spawn)) {
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnLogicMem(new HashSet<String>(),this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),spawnStage,"isax_spawn_lsu_oimm_writedata","isax_spawn_read_no_write","isax_spawn_lsu_oimm_address"),false, true, ""));
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnCommitMem(new HashSet<String>(),this.op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),spawnStage,"("+BNode.ISAX_fire2_mem_reg+" = '1') and (lsu_oimm_readdatavalid = '1')","(lsu_oimm_waitrequest = '0')"),false, true, ""));
+			} else {
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnLogicMem(this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage),new HashSet<String>(),spawnStage,"isax_spawn_lsu_oimm_writedata","isax_spawn_read_no_write","isax_spawn_lsu_oimm_address"),false, true, ""));
+				toFile.UpdateContent(this.ModFile("orca_core"),Parse.behav, new ToWrite( language.CreateSpawnCommitMem(this.op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage),new HashSet<String>(),spawnStage,"("+BNode.ISAX_fire2_mem_reg+" = '1') and (lsu_oimm_readdatavalid = '1')","(lsu_oimm_waitrequest = '0')"),false, true, ""));
+			}	
 		}
 	}
 
@@ -515,7 +573,7 @@ public class Orca extends CoreBackend {
 						PC_clause += "( "+ array_PC_clause.get(stage)+")";
 					}
 					if((stage == orca_core.GetNodes().get(BNode.WrPC).GetLatest())) 
-						PC_text += "elsif(to_pc_correction_valid = '1') then\n"+tab.repeat(2)+"ISAX_to_pc_correction_data_s <= to_pc_correction_data;\n";
+						PC_text += "else\n"+tab.repeat(2)+"ISAX_to_pc_correction_data_s <= to_pc_correction_data;\n";
 				}			
 			}
 			PC_text +=tab+"end if;\n";
@@ -645,12 +703,12 @@ public class Orca extends CoreBackend {
 	 	this.PutNode(1,  true, "std_logic", "", "orca_core", BNode.WrRD_spawn_valid,spawnStage);
 	 	this.PutNode(5,  true, "std_logic_vector", "", "orca_core", BNode.WrRD_spawn_addr,spawnStage);
 
-	 	this.PutNode(32, false, "std_logic_vector", "", "load_store_unit", BNode.RdMem_spawn,spawnStage);
-	 	this.PutNode(1, false, "std_logic","","load_store_unit", BNode.RdMem_spawn_valid,spawnStage);
-	 	this.PutNode(32, true,  "std_logic_vector", "", "load_store_unit", BNode.WrMem_spawn,spawnStage);
-	 	this.PutNode(1, false, "std_logic_vector","","load_store_unit",BNode.WrMem_spawn_valid,spawnStage);
-	 	this.PutNode(1,  true, "std_logic", "", "load_store_unit", BNode.Mem_spawn_valid,spawnStage);
-	 	this.PutNode(32, true,  "std_logic_vector", "","load_store_unit", BNode.Mem_spawn_addr,spawnStage);
+	 	this.PutNode(32, false, "std_logic_vector", "lsu_oimm_readdata", "orca_core", BNode.RdMem_spawn,spawnStage);
+	 	this.PutNode(1, false, "std_logic","","orca_core", BNode.RdMem_spawn_valid,spawnStage);
+	 	this.PutNode(32, true,  "std_logic_vector", "", "orca_core", BNode.WrMem_spawn,spawnStage);
+	 	this.PutNode(1, false, "std_logic","","orca_core",BNode.WrMem_spawn_valid,spawnStage);
+	 	this.PutNode(1,  true, "std_logic", "", "orca_core", BNode.Mem_spawn_valid,spawnStage);
+	 	this.PutNode(32, true,  "std_logic_vector", "","orca_core", BNode.Mem_spawn_addr,spawnStage);
 	 	
 	 	this.PutNode(1, false,  "std_logic",BNode.ISAX_fire2_regF_reg,"orca_core", BNode.commited_rd_spawn_valid,spawnStage);
 	 	this.PutNode(5, false,  "std_logic_vector","ISAX_execute_to_rf_select_s", "orca_core",BNode.commited_rd_spawn,spawnStage);

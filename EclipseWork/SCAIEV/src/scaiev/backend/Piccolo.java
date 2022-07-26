@@ -193,7 +193,6 @@ public class Piccolo extends CoreBackend{
 					assig = nodeName+" <= ";
 				} else 
 					language.UpdateInterface("mkCPU_Stage1","isax_"+BNode.WrPC_valid, "",stage,true, false);	
-				System.out.println("how often stage = "+stage+" nodeName = "+nodeName);
 							
 				String updatePCValid =  language.CreatePutInRule(assig +language.CreateValidEncoding(op_stage_instr.get(BNode.WrPC).get(stage), ISAXes, instrName[stage], BNode.WrPC)+" && (stage"+(stage+1)+".out.ostatus == OSTATUS_PIPE);\nstage1.met_"+language.CreateNodeName( "isax_"+BNode.WrPC_valid,stage, "")+"("+nodeName+");", "isax_"+BNode.WrPC_valid,stage, "");
 				toFile.UpdateContent(this.ModFile("mkCPU"),grepDeclareBehav,new ToWrite(updatePCValid,false,true,""));
@@ -243,7 +242,7 @@ public class Piccolo extends CoreBackend{
 			String stall3 = "";
 			if (ContainsOpInStage(BNode.WrStall,0))
 				stall3 = language.CreateLocalNodeName(BNode.WrStall, 0, "");
-			String fire_logic = language.CommitSpawnFire(BNode.WrRD_spawn,stall3,"stage3.out.ostatus == OSTATUS_PIPE",spawnStage,op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage),new  HashSet<String> ());
+			String fire_logic = language.CommitSpawnFire(BNode.WrRD_spawn,stall3,"stage3.out.ostatus == OSTATUS_PIPE",spawnStage,op_stage_instr.get(BNode.WrRD_spawn).get(spawnStage),new  HashSet<String> (), "");
 			// Commit logic
 			String priority   = "";
 			String elseWord   = "";
@@ -339,35 +338,38 @@ public class Piccolo extends CoreBackend{
 			String stall0 = "";
 			if (ContainsOpInStage(BNode.WrStall,0))
 				stall0 = language.CreateLocalNodeName(BNode.WrStall, 0, "");
-			String fire_logic = language.CommitSpawnFire(node,stall0,"stage3.out.ostatus == OSTATUS_PIPE",spawnStage,op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage));
+			String fire_logic = language.CommitSpawnFire(node,stall0,"stage3.out.ostatus == OSTATUS_PIPE",spawnStage,op_stage_instr.get(BNode.WrMem_spawn).get(spawnStage),op_stage_instr.get(BNode.RdMem_spawn).get(spawnStage), "near_mem.dmem.valid && isax_memONgoing_wire");
 			// Commit logic
 			String priority   = "";
 			String spawnLogic = "";
 			String spawnCommit = "";
-			String[] nodes = {BNode.RdMem_spawn,BNode.WrMem_spawn};
+			String[] nodes = {BNode.WrMem_spawn,BNode.RdMem_spawn };
 			int i= 0 ;
-			for(i=0;i<2;i++) 
-				for(String ISAX : op_stage_instr.get(nodes[i]).get(spawnStage)) {
-					spawnCommit += language.CreateSpawnCommitMem(ISAX, spawnStage, priority,nodes[i],"near_mem.dmem.valid","truncate( near_mem.dmem.word64)");
-					spawnLogic  += language.CreateSpawnLogic(ISAX, spawnStage,commit_stage, priority, nodes[i]);
-
-					// TODO
-					if(op_stage_instr.get(nodes[i]).get(spawnStage).size()==1) {				
+			for(i=0;i<2;i++) {
+				if( op_stage_instr.containsKey(nodes[i])) {
+					for(String ISAX : op_stage_instr.get(nodes[i]).get(spawnStage)) {
+						spawnCommit += language.CreateSpawnCommitMem(ISAX, spawnStage, priority,nodes[i],"near_mem.dmem.valid && isax_memONgoing_wire","truncate( near_mem.dmem.word64)");
+						spawnLogic  += language.CreateSpawnLogic(ISAX, spawnStage,commit_stage, priority, nodes[i]);
+	
+						// TODO
+						if(op_stage_instr.get(nodes[i]).get(spawnStage).size()==1) {				
+						}
+						if(!priority.isEmpty())
+							priority += " || ";
+						priority   += language.CreateNodeName(BNode.Mem_spawn_valid, spawnStage,ISAX).replace("_i", "_reg");
 					}
-					if(!priority.isEmpty())
-						priority += " || ";
-					priority   += language.CreateNodeName(BNode.Mem_spawn_valid, spawnStage,ISAX).replace("_i", "_reg");
 				}
-
+			}	
 			 spawnCommit = "rule rule_spawn"+node+"CommitandLogic;\n"+spawnCommit+"\nendrule\n";
 			this.toFile.UpdateContent(this.ModFile("mkCPU"), grepDeclareBehav, new ToWrite(fire_logic+"\n"+spawnCommit,false,true,"", true));
-			String writeRes = "rule rule_send_to_stage2_spawn( "+BNode.ISAX_fire2_mem_reg+" );\n"+language.AllignText(tab,spawnLogic)+"\nendrule\n";
+			String writeRes = "rule rule_send_to_stage2_spawn( "+BNode.ISAX_fire2_mem_reg+" &&  !isax_memONgoing);\n"+language.AllignText(tab,spawnLogic)+"\n if("+priority+") isax_memONgoing <= True; \nendrule\n";
 			this.toFile.UpdateContent(this.ModFile("mkCPU"), grepDeclareBehav, new ToWrite(writeRes+"\n",false,true,"", true));
 			
 			// Update mkCPU for stall signal 
 			if(!this.ContainsOpInStage(BNode.WrRD_spawn, spawnStage)) // else, text updated in wrrd_spawn function
 				toFile.ReplaceContent(this.ModFile("mkCPU"), "rule rl_pipe",new ToWrite("rule rl_pipe (   (rg_state == CPU_RUNNING) && (!("+BNode.ISAX_spawnStall_mem_s+"))",false,true,""));
 			
+			String spawnStall = language.CreatePutInRule(BNode.ISAX_spawnStall_mem_s +" <= "+ BNode.ISAX_fire2_mem_reg, BNode.ISAX_spawnStall_mem_s, spawnStage,""); // TODO
 			// Update stage 3 
 			String stage2 = "method Action met_"+language.CreateNodeName(BNode.Mem_spawn_valid, spawnStage,"")+" (Bit#(32) addr, Bit#(32) data, Bool valid, Bool read); \n"
 					+ "   CacheOp cache_op = ?;\n"
@@ -385,7 +387,21 @@ public class Piccolo extends CoreBackend{
 					+ "endmethod\n";
 
 			this.toFile.UpdateContent(this.ModFile("mkCPU_Stage2"), "endmodule", new ToWrite(stage2+"\n",false,true,"", true));
-			this.toFile.UpdateContent(this.ModFile("mkCPU_Stage2"), "endinterface", new ToWrite("(*always_enabled*)method Action met_"+language.CreateNodeName(BNode.Mem_spawn_valid, spawnStage,"")+" (Bit#(32) x,Bit#(32) y,Bool z, Bool read);\n",false,true,"", true));
+			this.toFile.UpdateContent(this.ModFile("mkCPU_Stage2"), "endinterface", new ToWrite("method Action met_"+language.CreateNodeName(BNode.Mem_spawn_valid, spawnStage,"")+" (Bit#(32) x,Bit#(32) y,Bool z, Bool read);\n",false,true,"", true));
+			
+			
+			String checkSpawnDone = "rule rule_isaxwire;\n"
+					+ "isax_memONgoing_wire <= isax_memONgoing;\n"
+					+ "endrule\n"
+					+ "\n"
+					+ "rule rule_resetMemOngoing (isax_memONgoing) ; \n"
+					+ "if(near_mem.dmem.valid)\n"
+					+ "isax_memONgoing <= False;\n"
+					+ "endrule\n"
+					+ "\n";
+			this.toFile.UpdateContent(this.ModFile("mkCPU"), "module mkCPU",new ToWrite("Wire #(Bool) isax_memONgoing_wire <- mkWire();\nReg #(Bool) isax_memONgoing <- mkReg(False);\n",false,true,""));
+			
+			this.toFile.UpdateContent(this.ModFile("mkCPU"), grepDeclareBehav, new ToWrite(checkSpawnDone,false,true,"", true));
 			
 		}
 	}

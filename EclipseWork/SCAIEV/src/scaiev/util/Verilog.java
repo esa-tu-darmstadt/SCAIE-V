@@ -173,31 +173,35 @@ public class Verilog extends GenerateText {
 			if((ISAXes.size()+sizeOtherNode)==1)
 				declareSumSpawn += " ";
 			else 
-				declareSumSpawn += "["+((int) Math.ceil(Math.log(ISAXes.size()+sizeOtherNode))) +"-1 : 0] ";
+				declareSumSpawn += "["+((int)  (Math.ceil( Math.log(ISAXes.size()+sizeOtherNode+1) / Math.log(2) ) )  ) +"-1 : 0] ";
 			declareSumSpawn += ISAX_sum_spawn_s+";\n";
 			declare += declareSumSpawn;
 		}
 		return declare;			
 	}
 	
-	public String CreateSpawnRegsWrRD(String instr, int stage, String priority, String node) {
+	public String CreateSpawnRegsLogic(String instr, int stage, String priority, String node, String mem_state) {
 		String body = "";	
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg;
 		String valid_node = node+"_valid";
 		String addr_node = node+"_addr";
+		String check_mem_state = "";
+		
 		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
 			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
 			valid_node = BNode.Mem_spawn_valid ;
 			addr_node = BNode.Mem_spawn_addr;
+			check_mem_state = " && ("+mem_state+")";
+			
 		}
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+"! ("+priority+")"; 
+			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
 		body += "if("+CreateNodeName(valid_node, stage,instr)+" ) begin \n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= 1'b1; \n";
 		if(!node.contentEquals(BNode.RdMem_spawn))
 				body +=  tab+CreateNodeName(node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(node, stage,instr)+"; \n";
 		body +=  tab+CreateNodeName(addr_node, stage,instr).replace("_i", "_reg")+" <= "+CreateNodeName(addr_node, stage,instr)+"; \n"
-				+ "end else if(("+ISAX_fire2_r+" ) "+priority+") \n"
+				+ "end else if(("+ISAX_fire2_r+" ) "+priority+check_mem_state+") \n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= 1'b0; \n"
 				+ "if ("+reset+" )\n"
 		        + tab +CreateNodeName(valid_node, stage,instr).replace("_i", "_reg") + "<= 1'b0; \n";
@@ -205,22 +209,22 @@ public class Verilog extends GenerateText {
 		return body;		
 	}
 	
-	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage) {
+	public String CommitSpawnFire (String node, String stallStage, String stageReady, int spawnStage, String mem_state) {
 		String ISAX_fire_r = BNode.ISAX_fire_regF_reg;
 		String ISAX_fire_s = BNode.ISAX_fire_regF_s; 
 		String ISAX_fire2_r = BNode.ISAX_fire2_regF_reg; 
 		String ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_regF_s; 
 		String ISAX_spawnStall_s = BNode.ISAX_spawnStall_regF_s;
-		String valid_node = node+"_valid";
-		String addr_node = node+"_addr";
+		String check_mem_state = "";
+		String neg_mem_state = "";
 		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
 			ISAX_fire_r = BNode.ISAX_fire_mem_reg; 
 			ISAX_fire_s = BNode.ISAX_fire_mem_s;
 			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
 			ISAX_sum_spawn_s = BNode.ISAX_sum_spawn_mem_s;
 			ISAX_spawnStall_s = BNode.ISAX_spawnStall_mem_s;
-			valid_node = BNode.Mem_spawn_valid;
-			addr_node = BNode.Mem_spawn_addr;
+			check_mem_state = " && ("+mem_state+")";
+		
 		}
 		
 		// Create stall logic 
@@ -250,7 +254,7 @@ public class Verilog extends GenerateText {
 				+ "always @ (posedge "+clk+")  begin\n"
 				+ "     if(("+ISAX_fire_r+") "+stallFullLogic+")    \n"
 				+ "          "+ISAX_fire2_r+" <=  1'b1; \n"
-				+ "     else if("+ISAX_fire2_r+" && "+ISAX_sum_spawn_s+" == "+sumRes+")    \n"
+				+ "     else if("+ISAX_fire2_r+" && ("+ISAX_sum_spawn_s+" == "+sumRes+") "+check_mem_state+")    \n"
 				+ "          "+ISAX_fire2_r+" <= 1'b0; \n"
 				+ "     if ("+reset+") \n"
 				+ "          "+ISAX_fire2_r+" <= 1'b0; \n"
@@ -271,6 +275,52 @@ public class Verilog extends GenerateText {
 				*/
 		return body;		
 	}
+	
+	public String CreateSpawnCommitMem(String instr, int stage, String priority, String node, String ready, String rdata ) {
+		String body = "";
+		
+		if(!priority.isEmpty())
+			priority = " && !("+priority+")"; 
+		body += "if(("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+")"+priority+") begin \n";
+		if(node.contains(BNode.WrMem_spawn)) {
+			body += CreateNodeName(BNode.WrMem_spawn_valid, stage,instr)+" = "+BNode.ISAX_fire2_mem_reg+" && "+ready+";\n";
+		}
+		else {
+			body += CreateNodeName(BNode.RdMem_spawn_valid, stage,instr)+" = "+BNode.ISAX_fire2_mem_reg+" && "+ready+";\n";
+			body += CreateNodeName(BNode.RdMem_spawn, stage,instr)+" = "+rdata+";\n";
+		}	
+		body += "end else begin  \n";
+		if(node.contains(BNode.WrMem_spawn)) {
+			body += CreateNodeName(BNode.WrMem_spawn_valid, stage,instr)+" = 0;\n";
+		}
+		else {
+			body += CreateNodeName(BNode.RdMem_spawn_valid, stage,instr)+" = 0;\n";
+			body += CreateNodeName(BNode.RdMem_spawn, stage,instr)+" = 0 ;\n";
+		}	
+		body += "end \n";
+		return body;
+		
+	}
+	
+	public String CreateSpawnFSMMem(String instr, int stage, String priority, String node, String wrmem, String wrdata, String addr ) {
+		String body = "";
+		
+		if(!priority.isEmpty())
+			priority = " && !("+priority+")"; 
+		body += "if(("+CreateNodeName(BNode.Mem_spawn_valid, stage,instr).replace("_i", "_reg")+")"+priority+") begin \n";
+		if(node.contains(BNode.WrMem_spawn)) {
+			body += wrmem + " = 1;\n";
+			body += wrdata + " =  "+ CreateNodeName(BNode.WrMem_spawn, stage,instr).replace("_i", "_reg")+";\n";			
+		}
+		else {
+			body += wrmem + " = 0;\n";
+		}	
+		body += addr+ " =  "+ CreateNodeName(BNode.Mem_spawn_addr, stage,instr).replace("_i", "_reg")+";\n";
+		body += "end\n";
+		return body;
+		
+	}
+	
 	
 	public String CreateSpawnLogicWrRD(HashSet<String> ISAXes, int stage, String ISAX_execute_to_rf_data_s, String ISAX_fire2_regF_r) {
 		String body = "";
@@ -350,14 +400,14 @@ public class Verilog extends GenerateText {
 		return text;
 	}
 	
-	public String CreateInAlways(boolean clk, String text) {
+	public String CreateInAlways( boolean with_clk ,String text) {
 		int i = 1;
 		String sensitivity = "*";
-		if(clk) {
-			sensitivity = "posedge clk";
+		if(with_clk) {
+			sensitivity = "posedge "+clk;
 			i++;
 		}
-		String body ="always@("+sensitivity+") begin // ISAX Logic\n "+AllignText(tab.repeat(i),text)+"\n"+"end;\n" ;
+		String body ="always@("+sensitivity+") begin // ISAX Logic\n "+AllignText(tab.repeat(i),text)+"\n"+"end\n" ;
 		return body;		
 	}
 	
