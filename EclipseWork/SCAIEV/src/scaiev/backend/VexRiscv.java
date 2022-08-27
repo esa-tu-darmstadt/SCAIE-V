@@ -60,7 +60,7 @@ public class VexRiscv extends CoreBackend{
 		
 		
 		// Write all files 
-		toFile.WriteFiles(Lang.SpinalHDL);
+		toFile.WriteFiles(language.GetDictModule(),language.GetDictEndModule());
 	}
 	
 	

@@ -57,7 +57,7 @@ public class Orca extends CoreBackend {
 		IntegrateISAX_Mem();
 		IntegrateISAX_WrPC();
 		//IntegrateISAX_Mem();
-		toFile.WriteFiles(Lang.VHDL);
+		toFile.WriteFiles(language.GetDictModule(),language.GetDictEndModule());
 	
 	}
 	

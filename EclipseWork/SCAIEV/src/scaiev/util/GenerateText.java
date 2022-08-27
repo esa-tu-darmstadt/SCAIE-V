@@ -8,24 +8,24 @@ import scaiev.backend.CoreBackend;
 import scaiev.coreconstr.Core;
 import scaiev.frontend.SCAIEVInstr;
 
-class Words {
+enum DictWords {
 
-	public static String module = "module"; 
-	public static String endmodule = "endmodule";
-	public static String wire = "wire"; 
-	public static String reg = "reg";
-	public static String assign = "assign"; 
-	public static String assign_eq = "assign_eq";
-	public static String logical_or = "logical_or"; 
-	public static String logical_and = "logical_and";
-	public static String bitwise_and = "bitwise_and"; 
-	public static String bitwise_or = "bitwise_or";
-	public static String bitsselectRight = "bitsselectRight"; 
-	public static String bitsselectLeft = "bitsselectLeft";
-	public static String bitsRange = "bitsRange"; 
-	public static String in = "in";
-	public static String out = "out"; 
-	public static String  ifeq = "=="; 
+	module           ,
+	endmodule        ,
+	wire             ,
+	reg              ,
+	assign           ,
+	assign_eq        ,
+	logical_or       ,
+	logical_and      ,
+	bitwise_and      ,
+	bitwise_or       ,
+	bitsselectRight  ,
+	bitsselectLeft   ,
+	bitsRange        ,
+	in               ,
+	out              ,
+	ifeq             
 	
 }
 
@@ -37,24 +37,24 @@ public class GenerateText {
 	public String clk = "";
 	public String reset = "";
 	
-	public HashMap<String,String> dictionary = new HashMap<String,String>(){{ 
-		put(Words.module, "");
-		put(Words.endmodule, "");
-		put(Words.endmodule, "");
-		put(Words.assign, "");
-		put(Words.wire, "");
-		put(Words.reg, "");
-		put(Words.assign,"");
-		put(Words.assign_eq,"");
-		put(Words.logical_or,"");
-		put(Words.logical_and,"");
-		put(Words.bitwise_or,"");
-		put(Words.bitwise_and,"");
-		put(Words.bitsselectRight,"");
-		put(Words.bitsselectLeft,"");
-		put(Words.bitsRange,"");
-		put(Words.in,"");
-		put(Words.out,"");
+	public HashMap<DictWords,String> dictionary = new HashMap<DictWords,String>(){{ 
+		put(DictWords.module, "");
+		put(DictWords.endmodule, "");
+		put(DictWords.endmodule, "");
+		put(DictWords.assign, "");
+		put(DictWords.wire, "");
+		put(DictWords.reg, "");
+		put(DictWords.assign,"");
+		put(DictWords.assign_eq,"");
+		put(DictWords.logical_or,"");
+		put(DictWords.logical_and,"");
+		put(DictWords.bitwise_or,"");
+		put(DictWords.bitwise_and,"");
+		put(DictWords.bitsselectRight,"");
+		put(DictWords.bitsselectLeft,"");
+		put(DictWords.bitsRange,"");
+		put(DictWords.in,"");
+		put(DictWords.out,"");
 	}};
 	
 	
@@ -125,8 +125,16 @@ public class GenerateText {
 		return nodeName;
 	}
 	
-	public String GetDict(String input) {
+	public String GetDict(DictWords input) {
 		return dictionary.get(input);
+	}
+	
+	public String GetDictModule() {
+		return dictionary.get(DictWords.module);
+	}
+	
+	public String GetDictEndModule() {
+		return dictionary.get(DictWords.endmodule);
 	}
 	
 	public String AllignText(String allignment, String text) {
@@ -141,12 +149,12 @@ public class GenerateText {
 		String body = "";
 		for (String ISAX  :  lookAtISAX) {
 			if(!body.isEmpty())
-				body +=  " "+dictionary.get(Words.logical_or)+" ";
-			body += "(("+rdInstr+dictionary.get(Words.bitsselectLeft)+"6 "+dictionary.get(Words.bitsRange)+" 0"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
+				body +=  " "+dictionary.get(DictWords.logical_or)+" ";
+			body += "(("+rdInstr+dictionary.get(DictWords.bitsselectLeft)+"6 "+dictionary.get(DictWords.bitsRange)+" 0"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
 			if(!allISAXes.get(ISAX).GetEncodingF3(Lang.VHDL).contains("-"))
-				body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"14 "+dictionary.get(Words.bitsRange)+" 12"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"14 "+dictionary.get(DictWords.bitsRange)+" 12"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
 			if(!allISAXes.get(ISAX).GetEncodingF7(Lang.VHDL).contains("-"))
-				body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"31 "+dictionary.get(Words.bitsRange)+" 25"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"31 "+dictionary.get(DictWords.bitsRange)+" 25"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
 			body += ")";			
 		}
 		return body;		
@@ -157,12 +165,12 @@ public class GenerateText {
 		for (String ISAX  :  lookAtISAX) {
 			if(allISAXes.get(ISAX).GetSchedNodes().get(operation).GetAddrInterf()) {
 				if(!body.isEmpty())
-					body += " "+dictionary.get(Words.logical_or)+" ";
-				body += "(("+rdInstr+dictionary.get(Words.bitsselectLeft)+"6 "+dictionary.get(Words.bitsRange)+" 0"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
+					body += " "+dictionary.get(DictWords.logical_or)+" ";
+				body += "(("+rdInstr+dictionary.get(DictWords.bitsselectLeft)+"6 "+dictionary.get(DictWords.bitsRange)+" 0"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
 				if(!allISAXes.get(ISAX).GetEncodingF3(Lang.VHDL).contains("-"))
-					body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"14 "+dictionary.get(Words.bitsRange)+" 12"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
+					body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"14 "+dictionary.get(DictWords.bitsRange)+" 12"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
 				if(!allISAXes.get(ISAX).GetEncodingF7(Lang.VHDL).contains("-"))
-					body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"31 "+dictionary.get(Words.bitsRange)+" 25"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
+					body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"31 "+dictionary.get(DictWords.bitsRange)+" 25"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
 				body += ")";
 			}
 		}
@@ -174,16 +182,16 @@ public class GenerateText {
 		String body = "";
 		for (String ISAX  :  lookAtISAX) {
 			if(!body.isEmpty())
-				body += " "+dictionary.get(Words.logical_or)+" ";
-			body += "(("+rdInstr+dictionary.get(Words.bitsselectLeft)+"6 "+dictionary.get(Words.bitsRange)+" 0"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
+				body += " "+dictionary.get(DictWords.logical_or)+" ";
+			body += "(("+rdInstr+dictionary.get(DictWords.bitsselectLeft)+"6 "+dictionary.get(DictWords.bitsRange)+" 0"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingOp(getLang())+")";
 			if(!allISAXes.get(ISAX).GetEncodingF3(Lang.VHDL).contains("-"))
-				body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"14 "+dictionary.get(Words.bitsRange)+" 12"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"14 "+dictionary.get(DictWords.bitsRange)+" 12"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF3(getLang())+")";
 			if(!allISAXes.get(ISAX).GetEncodingF7(Lang.VHDL).contains("-"))
-				body += " "+dictionary.get(Words.logical_and)+" ("+ rdInstr+dictionary.get(Words.bitsselectLeft)+"31 "+dictionary.get(Words.bitsRange)+" 25"+dictionary.get(Words.bitsselectRight)+" "+dictionary.get(Words.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" ("+ rdInstr+dictionary.get(DictWords.bitsselectLeft)+"31 "+dictionary.get(DictWords.bitsRange)+" 25"+dictionary.get(DictWords.bitsselectRight)+" "+dictionary.get(DictWords.ifeq)+" "+allISAXes.get(ISAX).GetEncodingF7(getLang())+")";
 			
 			
 			if(allISAXes.get(ISAX).GetSchedNodes().get(operation).GetValidInterf()) {
-				body += " "+dictionary.get(Words.logical_and)+" "+this.CreateLocalNodeName(operation+"_valid", allISAXes.get(ISAX).GetSchedNodes().get(operation).GetStartCycle(), "")+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" "+this.CreateLocalNodeName(operation+"_valid", allISAXes.get(ISAX).GetSchedNodes().get(operation).GetStartCycle(), "")+")";
 			} else 
 				body += ")";
 		}
@@ -195,13 +203,13 @@ public class GenerateText {
 		String body = "";
 		for (String ISAX  :  lookAtISAX) {
 			if(!body.isEmpty())
-				body += " "+dictionary.get(Words.logical_or)+" ";
+				body += " "+dictionary.get(DictWords.logical_or)+" ";
 			if(allISAXes.get(ISAX).GetSchedNodes().containsKey(BNode.RdIValid) && (allISAXes.get(ISAX).GetSchedNodes().get(BNode.RdIValid).GetStartCycle()==stage))
 				body += "("+this.CreateNodeName(BNode.RdIValid, stage, ISAX);
 			else 
 				body += "("+this.CreateLocalNodeName(BNode.RdIValid, stage, ISAX);
 			if(allISAXes.get(ISAX).GetSchedNodes().get(operation).GetValidInterf()) {
-				body += " "+dictionary.get(Words.logical_and)+" "+this.CreateNodeName(operation+"_valid", allISAXes.get(ISAX).GetSchedNodes().get(operation).GetStartCycle(), "")+")";
+				body += " "+dictionary.get(DictWords.logical_and)+" "+this.CreateNodeName(operation+"_valid", allISAXes.get(ISAX).GetSchedNodes().get(operation).GetStartCycle(), "")+")";
 			} else 
 				body += ")";
 		}
@@ -214,8 +222,8 @@ public class GenerateText {
 		return text;
 	}
 	
-	public String getLang(){
-		return  "";
+	public Lang getLang(){
+		return  null;
 	}
 	
 	public void GenerateAllInterfaces (String topModule,HashMap<String, HashMap<Integer,HashSet<String>>> op_stage_instr, HashMap <String,SCAIEVInstr>  ISAXes, Core core, String specialCase ) {

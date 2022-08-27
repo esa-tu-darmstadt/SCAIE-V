@@ -48,7 +48,7 @@ public class Piccolo extends CoreBackend{
 		IntegrateISAX_Mem();
 		IntegrateISAX_SpawnMem();
 		
-		toFile.WriteFiles(Lang.Bluespec);
+		toFile.WriteFiles(language.GetDictModule(),language.GetDictEndModule());
 	}
 	
 	private void IntegrateISAX_IOs() {

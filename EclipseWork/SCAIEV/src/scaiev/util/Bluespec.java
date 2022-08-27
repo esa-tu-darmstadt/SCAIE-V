@@ -19,20 +19,20 @@ public class Bluespec extends GenerateText {
 
 	public Bluespec(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
-		dictionary.put(Words.module,"module");
-		dictionary.put(Words.endmodule,"endmodule");
-		dictionary.put(Words.reg,"Reg");
-		dictionary.put(Words.wire,"Wire");		
-		dictionary.put(Words.assign,"");
-		dictionary.put(Words.assign_eq,"<=");
-		dictionary.put(Words.logical_or,"||");
-		dictionary.put(Words.bitwise_or,"|");
-		dictionary.put(Words.logical_and,"&&");
-		dictionary.put(Words.bitwise_and,"&");
-		dictionary.put(Words.bitsselectRight,"]");
-		dictionary.put(Words.bitsselectLeft,"[");
-		dictionary.put(Words.bitsRange,":");
-		dictionary.put(Words.ifeq,"==");
+		dictionary.put(DictWords.module,"module");
+		dictionary.put(DictWords.endmodule,"endmodule");
+		dictionary.put(DictWords.reg,"Reg");
+		dictionary.put(DictWords.wire,"Wire");		
+		dictionary.put(DictWords.assign,"<=");
+		dictionary.put(DictWords.assign_eq,"<=");
+		dictionary.put(DictWords.logical_or,"||");
+		dictionary.put(DictWords.bitwise_or,"|");
+		dictionary.put(DictWords.logical_and,"&&");
+		dictionary.put(DictWords.bitwise_and,"&");
+		dictionary.put(DictWords.bitsselectRight,"]");
+		dictionary.put(DictWords.bitsselectLeft,"[");
+		dictionary.put(DictWords.bitsRange,":");
+		dictionary.put(DictWords.ifeq,"==");
 		
 		this.toFile = toFile;
 		tab = toFile.tab;
@@ -40,7 +40,7 @@ public class Bluespec extends GenerateText {
 	}
 	
 	@Override 
-	public String getLang () {
+	public Lang getLang () {
 		return Lang.Bluespec;		
 	}
 	
@@ -105,7 +105,7 @@ public class Bluespec extends GenerateText {
 					
 				}
 				if(coreBackend.NodeIn(operation, stage))
-					assignText += tab+assignValue +" "+ dictionary.get("assign_eq") + " x;\n";
+					assignText += tab+assignValue +" "+ dictionary.get(DictWords.assign_eq) + " x;\n";
 				else 
 					assignText += tab+"return "+assignValue +";\n";
 				assignText += "endmethod\n";
@@ -219,14 +219,14 @@ public class Bluespec extends GenerateText {
 		String addr_node = node+"_addr";
 		String logicSpawnReady = "";
 		if(!spawnReady.isEmpty())
-			logicSpawnReady = " "+this.dictionary.get(Words.logical_and)+" "+spawnReady+" " ;
+			logicSpawnReady = " "+this.dictionary.get(DictWords.logical_and)+" "+spawnReady+" " ;
 		if(node.contains(BNode.RdMem_spawn.split("d")[1])) {
 			ISAX_fire2_r = BNode.ISAX_fire2_mem_reg;
 			valid_node = BNode.Mem_spawn_valid ;
 			addr_node = BNode.Mem_spawn_addr;
 		}
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" !("+priority+")"; 
 		body += "if("+CreateLocalNodeName(valid_node, spawnStage,instr)+" ) begin \n"
 				+ tab+CreateNodeName(valid_node, spawnStage,instr).replace("_i", "_reg")+" <= True; \n";
 		if(!node.contentEquals(BNode.RdMem_spawn))

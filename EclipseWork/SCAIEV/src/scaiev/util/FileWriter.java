@@ -55,17 +55,17 @@ public class FileWriter {
 		}
 		
 	}
-	public void WriteFiles(String userLanguage) {
+	public void WriteFiles(String langEndmodule, String langModule) {
 		for(String key : update_core.keySet()) {
-			WriteFile(update_core.get(key),key,userLanguage);			
+			WriteFile(update_core.get(key),key,langEndmodule,langModule);			
 		}
 	}
 
-	private void WriteFile(LinkedHashMap<ToWrite,String> insert, String file, String userLanguage) {
+	private void WriteFile(LinkedHashMap<ToWrite,String> insert, String file, String langEndmodule, String langModule) {
 		 System.out.println("INFO. FILEWRITER. Updating "+file);
 		 File inFile = new File(file);
 		 File outFile = new File("tempConfig.tmp");
-		 HashMap <String,HashMap<String, String>> shortLanguageDict = CreateShortDict();
+		 
 		 // If file does not exist, create it and add an empty character to be found by grep
 	     if(!inFile.exists()) {
 	    	 try {
@@ -96,7 +96,7 @@ public class FileWriter {
 				ArrayList<String> after = new ArrayList<String>();
 				// future optimization: make a map with strings to be inserted. Each time a string was inserted, make valid (take care if strings must be inserted multiple times. Stop searching if all strings inserted. 
 				for(ToWrite key_text : insert.keySet()) {
-					if(currentLine.contains(shortLanguageDict.get(userLanguage).get("module")) && !currentLine.contains(shortLanguageDict.get(userLanguage).get("endmodule"))  && !key_text.in_module.contentEquals("")) {
+					if(currentLine.contains(langModule) && !currentLine.contains(langEndmodule)  && !key_text.in_module.contentEquals("")) {
 						if(currentLine.contains(" "+key_text.in_module+" ") || currentLine.contains(key_text.in_module+"(") || currentLine.contains(" "+key_text.in_module+"\n")|| currentLine.contains(" "+key_text.in_module+";") ) {// space to avoid grep stuff like searching for pico and finding picorv32_axi
 							key_text.found_module = true;
 						} else 
@@ -138,7 +138,7 @@ public class FileWriter {
 							replace = true;	
 						
 					}
-					if(currentLine.contains(shortLanguageDict.get(userLanguage).get("endmodule"))&& !key_text.in_module.contentEquals(""))	
+					if(currentLine.contains(langEndmodule)&& !key_text.in_module.contentEquals(""))	
 						key_text.found_module = false;
 					// If interface already exists flag err and exit
 				}
@@ -167,29 +167,7 @@ public class FileWriter {
 		}	
 	}
 	
-	private HashMap <String,HashMap<String, String>>  CreateShortDict() {
-		HashMap <String,HashMap<String, String>> dict = new HashMap <String,HashMap<String, String>> (); 
-		HashMap<String, String> spinalDict = new HashMap<String, String>(); 
-		spinalDict.put("module", "class");
-		spinalDict.put("endmodule", "}");
-		dict.put(Lang.SpinalHDL, spinalDict);
-		
-		HashMap<String, String> verilog = new HashMap<String, String>(); 
-		verilog.put("module", "module");
-		verilog.put("endmodule", "endmodule");
-		dict.put(Lang.Verilog, verilog);
-		
-		HashMap<String, String> vhdl = new HashMap<String, String>(); 
-		vhdl.put("module", "component");
-		vhdl.put("endmodule", "end architecture");
-		dict.put(Lang.VHDL, vhdl);
-		
-		HashMap<String, String> bluespec = new HashMap<String, String>(); 
-		bluespec.put("module", "module");
-		bluespec.put("endmodule", "endmodule");
-		dict.put(Lang.Bluespec, bluespec);
-		return dict;
-	}
+
 	
 		
 	

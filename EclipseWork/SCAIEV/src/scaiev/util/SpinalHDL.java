@@ -12,17 +12,17 @@ public class SpinalHDL extends GenerateText{
 	
 	public SpinalHDL(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
-		dictionary.put(Words.module,"class");
-		dictionary.put(Words.endmodule,"}");
-		dictionary.put(Words.reg,"Reg");
-		dictionary.put(Words.wire,"UInt");		
-		dictionary.put(Words.assign,"");
-		dictionary.put(Words.assign_eq,":=");
-		dictionary.put(Words.logical_or,"||");
-		dictionary.put(Words.logical_and,"&&");
-		dictionary.put(Words.bitwise_or,"|");
-		dictionary.put(Words.in,"in");
-		dictionary.put(Words.out,"out");
+		dictionary.put(DictWords.module,"class");
+		dictionary.put(DictWords.endmodule,"}");
+		dictionary.put(DictWords.reg,"Reg");
+		dictionary.put(DictWords.wire,"UInt");		
+		dictionary.put(DictWords.assign,"");
+		dictionary.put(DictWords.assign_eq,":=");
+		dictionary.put(DictWords.logical_or,"||");
+		dictionary.put(DictWords.logical_and,"&&");
+		dictionary.put(DictWords.bitwise_or,"|");
+		dictionary.put(DictWords.in,"in");
+		dictionary.put(DictWords.out,"out");
 		this.toFile = toFile;
 		tab = toFile.tab;
 		this.coreBackend = core;
@@ -36,9 +36,9 @@ public class SpinalHDL extends GenerateText{
 	
 
 	public String CreateInterface(String operation, int stage, String instr) {
-		String in = dictionary.get(Words.out);
+		String in = dictionary.get(DictWords.out);
 		if(coreBackend.NodeIn(operation, stage))
-			in =dictionary.get(Words.in);
+			in =dictionary.get(DictWords.in);
 		String nodeName = CreateNodeName(operation, stage,instr);
 		String size = ""; 
 		if(coreBackend.NodeSize(operation, stage)>0)
@@ -76,7 +76,7 @@ public class SpinalHDL extends GenerateText{
 		 for(String instructionName : ISAXes.keySet()) {
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(!first)
-					 clause += " "+dictionary.get(Words.logical_or)+" ";
+					 clause += " "+dictionary.get(DictWords.logical_or)+" ";
 				 first = false;
 				 if(!pluginStage.isEmpty())
 					 clause += pluginStage+".";
@@ -95,7 +95,7 @@ public class SpinalHDL extends GenerateText{
 		 for(String instructionName : ISAXes.keySet()) {
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(!first)
-					 clause += " "+dictionary.get(Words.logical_or)+" ";
+					 clause += " "+dictionary.get(DictWords.logical_or)+" ";
 				 first = false;
 				 if(!pluginStage.isEmpty())
 					 clause +=pluginStage+".";
@@ -112,7 +112,7 @@ public class SpinalHDL extends GenerateText{
 			 if(ISAXes.get(instructionName).HasNode(operation) && ISAXes.get(instructionName).GetSchedNodes().get(operation).GetStartCycle()==stage) { 
 				 if(ISAXes.get(instructionName).GetNode(operation).GetAddrInterf()) {
 					 if(!first)
-						 clause += " "+dictionary.get(Words.logical_or)+" ";
+						 clause += " "+dictionary.get(DictWords.logical_or)+" ";
 					 if(!pluginStage.isEmpty())
 						 clause += pluginStage+".";
 					 clause += "input(IS_"+instructionName+")";
@@ -155,7 +155,7 @@ public class SpinalHDL extends GenerateText{
 	public String CreateSpawnLogicWrRD(String instr, int stage, String priority) {
 		String body = "";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" ! ("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" ! ("+priority+")"; 
 		body += "when("+this.CreateNodeName(BNode.WrRD_spawn_valid, stage, instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_regF_reg+priority+") {\n"
 			 +	tab+ "writeStage.arbitration.isRegFSpawn := True\n"
 			 +  tab+ "writeStage.output(REGFILE_WRITE_DATA) := "+this.CreateNodeName(BNode.WrRD_spawn, stage, instr).replace("_i","_reg")+"\n" 
@@ -189,7 +189,7 @@ public class SpinalHDL extends GenerateText{
 			write = "False";
 		String wrMemData = "";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" ! ("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" ! ("+priority+")"; 
 		if(operation.contains(BNode.WrMem_spawn))
 			wrMemData= tab.repeat(tabNr+1)+"dBusAccess.cmd.data  := "+CreateNodeName(BNode.WrMem_spawn,stage,instr).replace("_i","_reg")+"\n";
 		body = 	  tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_mem_reg+priority+"){\n"
@@ -206,7 +206,7 @@ public class SpinalHDL extends GenerateText{
 		String body = "";
 		String write = "True";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" !("+priority+")"; 
 		if(operation.contains(BNode.WrMem_spawn))
 			body =    tab.repeat(tabNr)  +"when("+ CreateNodeName(BNode.Mem_spawn_valid,stage,instr).replace("_i","_reg")+" && "+BNode.ISAX_fire2_mem_reg+priority+") {\n"
 					+ tab.repeat(tabNr+1)+"state := State.CMD\n"
@@ -226,7 +226,7 @@ public class SpinalHDL extends GenerateText{
 	public String CreateSpawnRSPRDYMem(int stage, String instr, int tabNr, String priority) {
 		String body = "";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" !("+priority+")"; 
 		body = tab.repeat(tabNr)+"when("+this.CreateNodeName(BNode.Mem_spawn_valid, stage, instr).replace("_i", "_reg") +" && "+BNode.ISAX_fire2_mem_reg+priority+") {\n"
 				    + tab.repeat(tabNr+1)+"io."+CreateNodeName(BNode.RdMem_spawn, stage, instr) +":= dBusAccess.rsp.data\n"
 				    + tab.repeat(tabNr+1)+"io."+CreateNodeName(BNode.RdMem_spawn_valid, stage, instr) +" := True\n"

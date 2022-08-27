@@ -12,36 +12,35 @@ public class Verilog extends GenerateText {
 	public String tab = "    ";
 	public Verilog(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
-		dictionary.put(Words.module,"module");
-		dictionary.put(Words.endmodule,"endmodule");
-		dictionary.put(Words.reg,"reg");
-		dictionary.put(Words.wire,"wire");		
-		dictionary.put(Words.assign,"assign");
-		dictionary.put(Words.assign_eq,"=");
-		dictionary.put(Words.logical_or,"||");
-		dictionary.put(Words.bitwise_or,"|");
-		dictionary.put(Words.logical_and,"&&");
-		dictionary.put(Words.bitwise_and,"&");
-		dictionary.put(Words.bitsselectRight,"]");
-		dictionary.put(Words.bitsselectLeft,"[");
-		dictionary.put(Words.ifeq,"==");
-		dictionary.put(Words.bitsRange,":");
-		dictionary.put(Words.in,"input");
-		dictionary.put(Words.out,"output");
+		dictionary.put(DictWords.module,"module");
+		dictionary.put(DictWords.endmodule,"endmodule");
+		dictionary.put(DictWords.reg,"reg");
+		dictionary.put(DictWords.wire,"wire");		
+		dictionary.put(DictWords.assign,"assign");
+		dictionary.put(DictWords.assign_eq,"=");
+		dictionary.put(DictWords.logical_or,"||");
+		dictionary.put(DictWords.bitwise_or,"|");
+		dictionary.put(DictWords.logical_and,"&&");
+		dictionary.put(DictWords.bitwise_and,"&");
+		dictionary.put(DictWords.bitsselectRight,"]");
+		dictionary.put(DictWords.bitsselectLeft,"[");
+		dictionary.put(DictWords.ifeq,"==");
+		dictionary.put(DictWords.bitsRange,":");
+		dictionary.put(DictWords.in,"input");
+		dictionary.put(DictWords.out,"output");
 		this.toFile = toFile;
 		tab = toFile.tab;
 		this.coreBackend = core;
 	}
 	
 	@Override 
-	public String getLang () {
+	public Lang getLang () {
 		return Lang.Verilog;		
 	}
 	public void  UpdateInterface(String top_module,String operation, String instr, int stage, boolean top_interface, boolean instReg) {
 		// Update interf bottom file
 		System.out.println("INTEGRATE. DEBUG. stage = "+stage+" operation = "+operation);
-		HashMap<String, HashMap<String,ToWrite>> update_orca = new HashMap<String, HashMap<String,ToWrite>>();
-		
+	
 		// Update interf bottom file
 		String assign_lineToBeInserted = "";
 		
@@ -54,7 +53,6 @@ public class Verilog extends GenerateText {
 		String current_module = bottom_module;
 		String prev_module = "";
 		while(!prev_module.contentEquals(top_module)) {
-			HashMap<String,ToWrite> insert = new HashMap<String,ToWrite>();
 			if(!current_module.contentEquals(top_module) || top_interface) {  // top file should just instantiate signal in module instantiation and not generate top interface
 				this.toFile.UpdateContent(coreBackend.ModFile(current_module),");",new ToWrite(CreateTextInterface(operation,stage,instr),true,false,"module "+current_module+" ",true,current_module));								
 			} else if(current_module.contentEquals(top_module)) {
@@ -101,7 +99,7 @@ public class Verilog extends GenerateText {
 		String decl = "";
 		String size = "";
 		if(coreBackend.NodeSize(operation,stage) != 1 ) 
-			size += dictionary.get(Words.bitsselectLeft)+" "+coreBackend.NodeSize(operation, stage)+" -1 : 0 "+dictionary.get(Words.bitsselectRight);
+			size += dictionary.get(DictWords.bitsselectLeft)+" "+coreBackend.NodeSize(operation, stage)+" -1 : 0 "+dictionary.get(DictWords.bitsselectRight);
 		String wire = "wire";
 		if(reg)
 			wire = "reg";
@@ -117,7 +115,7 @@ public class Verilog extends GenerateText {
 		String decl = "";
 		String size = "";
 		if(coreBackend.NodeSize(operation,stage) != 1 ) 
-			size += dictionary.get(Words.bitsselectLeft)+" "+coreBackend.NodeSize(operation, stage)+" -1 : 0 "+dictionary.get(Words.bitsselectRight);
+			size += dictionary.get(DictWords.bitsselectLeft)+" "+coreBackend.NodeSize(operation, stage)+" -1 : 0 "+dictionary.get(DictWords.bitsselectRight);
 		String regName = "";
 		if(coreBackend.NodeIn(operation, stage))
 			regName = CreateNodeName(operation,stage,instr).replace("_i", "_reg");
@@ -195,7 +193,7 @@ public class Verilog extends GenerateText {
 			
 		}
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" !("+priority+")"; 
 		body += "if("+CreateNodeName(valid_node, stage,instr)+" ) begin \n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= 1'b1; \n";
 		if(!node.contentEquals(BNode.RdMem_spawn))
@@ -335,9 +333,9 @@ public class Verilog extends GenerateText {
 	public String CreateTextInterface(String operation, int stage, String instr) {
 		String interf_lineToBeInserted = "";
 		String sig_name = this.CreateNodeName(operation, stage, instr);
-		String sig_in = this.dictionary.get(Words.out);
+		String sig_in = this.dictionary.get(DictWords.out);
 		if(coreBackend.NodeIn(operation, stage))
-			sig_in = this.dictionary.get(Words.in);
+			sig_in = this.dictionary.get(DictWords.in);
 		String size = "";
 		if(coreBackend.NodeSize(operation, stage)> 1 ) 
 			size += "["+coreBackend.NodeSize(operation, stage)+" -1 : 0]";

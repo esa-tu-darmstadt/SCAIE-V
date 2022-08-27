@@ -128,28 +128,28 @@ public class SCAIEVInstr {
 			return "key  = M\""+encodingF7+"----------"+encodingF3+"-----"+encodingOp+"\",";	// Return encoding
 	}
 	
-	public String GetEncodingOp(String language) {		
-		if(language.contains("vhdl"))
+	public String GetEncodingOp(Lang language) {		
+		if(language == Lang.VHDL)
 			return "\""+encodingOp+"\"";	
-		else if(language.contains(Lang.Verilog)  || language.contains(Lang.Bluespec))
+		else if(language == Lang.Verilog || language == Lang.Bluespec)
 			return "7'b"+encodingOp;
 		else 
 			return encodingOp;
 	}
 	
-	public String GetEncodingF7(String language) {		
-		if(language.contains(Lang.VHDL))
+	public String GetEncodingF7(Lang language) {		
+		if(language == Lang.VHDL)
 			return "\""+encodingF7+"\"";	
-		else if(language.contains(Lang.Verilog)  || language.contains(Lang.Bluespec))
+		else if(language == Lang.Verilog || language == Lang.Bluespec)
 			return "7'b"+encodingF7;
 		else 
 			return encodingF7;
 	}
 	
-	public String GetEncodingF3(String language) {		
-		if(language.contains(Lang.VHDL))
+	public String GetEncodingF3(Lang language) {		
+		if(language == Lang.VHDL)
 			return "\""+encodingF3+"\"";	
-		else if(language.contains(Lang.Verilog)  || language.contains(Lang.Bluespec))
+		else if(language == Lang.Verilog  || language == Lang.Bluespec)
 			return "3'b"+encodingF3;
 		else 
 			return encodingF3;

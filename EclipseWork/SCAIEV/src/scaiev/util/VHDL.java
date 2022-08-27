@@ -13,29 +13,29 @@ public class VHDL extends GenerateText {
 	
 	public VHDL(FileWriter toFile, CoreBackend core) {
 		// initialize dictionary 
-		dictionary.put(Words.module,"architecture");
-		dictionary.put(Words.endmodule,"end architecture");
-		dictionary.put(Words.reg,"signal");
-		dictionary.put(Words.wire,"signal");		
-		dictionary.put(Words.assign,"");
-		dictionary.put(Words.assign_eq,"<=");
-		dictionary.put(Words.logical_or,"or");
-		dictionary.put(Words.bitwise_or,"or");
-		dictionary.put(Words.logical_and,"and");
-		dictionary.put(Words.bitwise_and,"and");
-		dictionary.put(Words.bitsselectRight,")");
-		dictionary.put(Words.bitsselectLeft,"(");
-		dictionary.put(Words.ifeq,"=");
-		dictionary.put(Words.bitsRange,"downto");
-		dictionary.put(Words.in,"in");
-		dictionary.put(Words.out,"out");
+		dictionary.put(DictWords.module,"architecture");
+		dictionary.put(DictWords.endmodule,"end architecture");
+		dictionary.put(DictWords.reg,"signal");
+		dictionary.put(DictWords.wire,"signal");		
+		dictionary.put(DictWords.assign,"");
+		dictionary.put(DictWords.assign_eq,"<=");
+		dictionary.put(DictWords.logical_or,"or");
+		dictionary.put(DictWords.bitwise_or,"or");
+		dictionary.put(DictWords.logical_and,"and");
+		dictionary.put(DictWords.bitwise_and,"and");
+		dictionary.put(DictWords.bitsselectRight,")");
+		dictionary.put(DictWords.bitsselectLeft,"(");
+		dictionary.put(DictWords.ifeq,"=");
+		dictionary.put(DictWords.bitsRange,"downto");
+		dictionary.put(DictWords.in,"in");
+		dictionary.put(DictWords.out,"out");
 		this.toFile = toFile;
 		tab = toFile.tab;
 		this.coreBackend = core;
 	}
 	
 	@Override 
-	public String getLang () {
+	public Lang getLang () {
 		return Lang.VHDL;		
 	}
 	public void  UpdateInterface(String top_module,String operation, String instr, int stage, boolean top_interface, boolean special_case) {
@@ -188,7 +188,7 @@ public class VHDL extends GenerateText {
 		if(!exprSpawnReady.isEmpty())
 			exprSpawnReady = " and ("+exprSpawnReady+")";
 		if(!priority.isEmpty())
-			priority = " "+this.dictionary.get(Words.logical_and)+" !("+priority+")"; 
+			priority = " "+this.dictionary.get(DictWords.logical_and)+" !("+priority+")"; 
 		body += "if("+CreateNodeName(valid_node, stage,instr)+" = '1') then \n"
 				+ tab+CreateNodeName(valid_node, stage,instr).replace("_i", "_reg")+" <= '1'; \n";
 		if(!node.contentEquals(BNode.RdMem_spawn))
@@ -393,10 +393,10 @@ public class VHDL extends GenerateText {
 	public String CreateTextInterface(String operation, int stage, String instr, boolean special_case) {
 		String interf_lineToBeInserted = "";
 		String sig_name = this.CreateNodeName(operation, stage, instr);
-		String sig_in = this.dictionary.get(Words.out);
+		String sig_in = this.dictionary.get(DictWords.out);
 		String sig_type = coreBackend.NodeDataT(operation, stage);   
 		if(coreBackend.NodeIn(operation, stage))
-			sig_in = this.dictionary.get(Words.in);
+			sig_in = this.dictionary.get(DictWords.in);
 		String size = "";
 		if(coreBackend.NodeSize(operation, stage)>1 ) 
 			size += "("+coreBackend.NodeSize(operation, stage)+" -1 downto 0)";

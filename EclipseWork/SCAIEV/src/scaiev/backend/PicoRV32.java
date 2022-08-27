@@ -53,7 +53,7 @@ public class PicoRV32 extends CoreBackend {
 		IntegrateISAX_WrPC();
 		IntegrateISAX_WrStall(); // stall last
 		
-		toFile.WriteFiles(Lang.Verilog);
+		toFile.WriteFiles(language.GetDictModule(),language.GetDictEndModule());
 	
 	}
 	

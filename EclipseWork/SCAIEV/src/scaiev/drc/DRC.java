@@ -7,6 +7,7 @@ import scaiev.backend.BNode;
 import scaiev.coreconstr.Core;
 import scaiev.frontend.FNode;
 import scaiev.frontend.SCAIEVInstr;
+import scaiev.util.Lang;
 
 public class DRC {
     public static boolean errLevelHigh = false;
@@ -24,14 +25,14 @@ public class DRC {
 	public static void CheckEncoding(SCAIEVInstr instruction) {
 		String instrType = instruction.GetInstrType(); 
 		
-		if(!(instrType.equals("R"))&&(!instruction.GetEncodingF7("").equals("-------"))) {
-			instruction.SetEncoding("-------",instruction.GetEncodingF3(""),instruction.GetEncodingOp(""),instrType);
+		if(!(instrType.equals("R"))&&(!instruction.GetEncodingF7(Lang.None).equals("-------"))) {
+			instruction.SetEncoding("-------",instruction.GetEncodingF3(Lang.None),instruction.GetEncodingOp(Lang.None),instrType);
 			System.out.println(errMessage+"! Instruction not R type, but F7 set. F7 will be set to - ");
 			if(errLevelHigh)
 				 System.exit(1);
 		}
-		if((instrType.contains("U"))&&(!instruction.GetEncodingF3("").equals("-------"))) {
-			instruction.SetEncoding(instruction.GetEncodingF7(""), "-------",instruction.GetEncodingOp(""),instrType);
+		if((instrType.contains("U"))&&(!instruction.GetEncodingF3(Lang.None).equals("-------"))) {
+			instruction.SetEncoding(instruction.GetEncodingF7(Lang.None), "-------",instruction.GetEncodingOp(Lang.None),instrType);
 			System.out.println(errMessage+"! Instruction U type, but F3 set. F3 will be set to - ");
 			if(errLevelHigh)
 				 System.exit(1);
