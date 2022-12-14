@@ -1,6 +1,20 @@
 # SCAIE-V
 ## Welcome to SCAIE-V: An Open-Source SCAlable Interface for ISA Extensions for RISC-V Processors!
 
+## NEWS: SCAIE-V gets an upgrade! 
+
+In the following weeks we will release an improved version of SCAIE-V! It comes with: 
+* better abstraction 
+    * less work for ISAX module (no result multiplexing or storing destination address for decoupled execution etc.)
+    * less logic within the core (more reliable tool, better verification, ease support for new cores)
+* fewer stalls in case of data hazards (if the microarchitecture of the core allows, results may be returned in earlier stages than the WB stage)
+* support for 5-stage VexRiscv
+* improved tool structure
+* some bug fixes
+* more detailed use of the tool
+
+Stay tuned!
+
 ## What is SCAIE-V?
 SCAIE-V is a: 
 - Portable =  supports different microarchitectures
